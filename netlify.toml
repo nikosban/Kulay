@@ -1,0 +1,10 @@
+[build]
+  command   = "npm run build"
+  publish   = "dist"
+
+# Catch-all redirect for the SPA — lets Netlify serve index.html
+# for any path rather than returning a 404 on hard reload
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200

@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Geist (UI) ── */
+@font-face {
+  font-family: 'Geist';
+  src: url('../node_modules/geist/dist/fonts/geist-sans/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Geist Mono (code / values) ── */
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('../node_modules/geist/dist/fonts/geist-mono/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ── Proportional Uppercase numerals ── */
+@layer utilities {
+  .font-numeric {
+    font-family: 'Geist', ui-sans-serif, system-ui, sans-serif;
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: 'lnum' 1, 'pnum' 1;
+  }
+}

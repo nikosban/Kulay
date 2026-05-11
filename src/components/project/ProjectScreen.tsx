@@ -1,0 +1,448 @@
+import { useRef, useState } from "react";
+import { IconLayoutGrid, IconTable } from "@tabler/icons-react";
+import { useProjectStore } from "../../store/useProjectStore";
+import { getActiveSteps } from "../../types/project";
+import type { Palette, LabelScale } from "../../types/project";
+import { DEFAULT_LABEL_SCALE } from "../../types/project";
+import { useTheme } from "../../contexts/ThemeContext";
+import { useAutoSave } from "../../hooks/useAutoSave";
+import { useBeforeUnload } from "../../hooks/useBeforeUnload";
+import { SavedTimestamp } from "../ui/SavedTimestamp";
+import { ConfirmLeaveModal } from "../ui/ConfirmLeaveModal";
+import { StepDetailPanel } from "./StepDetailPanel";
+import { ExportModal } from "./ExportModal";
+import { ThemeToggle } from "../ui/ThemeToggle";
+import { ProjectSidebar } from "./ProjectSidebar";
+import { relativeLuminance } from "../../lib/wcag";
+import { sanitizeHex } from "../../lib/hexInput";
+import { toast } from "sonner";
+
+const MIN_STEPS = 2;
+const MAX_STEPS = 20;
+
+// ── Compact background picker for the header ─────────────────────────────────
+
+function CompactBgInput({ value, label, onCommit }: {
+  value: string
+  label: string
+  onCommit: (hex: string) => void
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState(value.slice(1));
+
+  function commit(raw: string) {
+    const result = sanitizeHex(raw);
+    if (!result) { setEditing(false); setInputVal(value.slice(1)); return; }
+    if (result.alphaStripped) toast.info("Alpha value removed. Kulay works with solid colors only.");
+    setEditing(false);
+    setInputVal(result.hex.slice(1));
+    onCommit(result.hex);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div
+        className="relative w-4 h-4 rounded flex-shrink-0 overflow-hidden cursor-pointer border border-neutral-200 dark:border-neutral-600"
+        style={{ backgroundColor: value }}
+      >
+        <input
+          type="color"
+          value={value}
+          onChange={(e) => onCommit(e.target.value)}
+          className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+          title={label}
+        />
+      </div>
+      <div className="flex items-center">
+        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 select-none mr-0.5">#</span>
+        <input
+          type="text"
+          className="w-16 text-[11px] font-mono text-neutral-700 dark:text-neutral-300 bg-transparent outline-none"
+          value={editing ? inputVal : value.slice(1).toUpperCase()}
+          maxLength={8}
+          spellCheck={false}
+          onFocus={(e) => { setInputVal(value.slice(1)); setEditing(true); e.target.select(); }}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.currentTarget.blur();
+            if (e.key === "Escape") { setEditing(false); setInputVal(value.slice(1)); }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Color table (expanded + collapsed) ───────────────────────────────────────
+
+function ColorTable({ palettes, collapsed, onSelectPalette, onSelectAndOpenStep, paletteRefs }: {
+  palettes: Palette[]
+  collapsed: boolean
+  onSelectPalette: (id: string) => void
+  onSelectAndOpenStep: (paletteId: string, stepLabel: number) => void
+  paletteRefs: React.MutableRefObject<Map<string, HTMLDivElement>>
+}) {
+  // Use the first palette's labels as column headers (project-wide step count keeps them aligned)
+  const columnLabels = palettes[0] ? getActiveSteps(palettes[0]).map((s) => s.label) : [];
+
+  function attachRef(el: HTMLDivElement | null, paletteId: string) {
+    if (el) paletteRefs.current.set(paletteId, el);
+    else paletteRefs.current.delete(paletteId);
+  }
+
+  // ── Collapsed: tight color strips, no gaps, no labels ──────────────────────
+  if (collapsed) {
+    return (
+      <div className="flex-1 overflow-y-auto">
+        {palettes.map((palette) => {
+          const steps = getActiveSteps(palette);
+          return (
+            <div
+              key={palette.id}
+              ref={(el) => attachRef(el, palette.id)}
+              className="flex"
+              title={palette.name}
+            >
+              {steps.map((step) => (
+                <div
+                  key={step.label}
+                  className="flex-1 cursor-pointer"
+                  style={{ backgroundColor: step.hex, height: 28 }}
+                  onClick={() => onSelectAndOpenStep(palette.id, step.label)}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── Expanded: table with name column + labelled step cells ─────────────────
+  return (
+    <div className="flex-1 overflow-auto">
+      {/* Sticky header row */}
+      <div className="flex sticky top-0 z-10 bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="w-36 flex-shrink-0" />
+        {columnLabels.map((label) => (
+          <div
+            key={label}
+            className="flex-1 py-2 text-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none"
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* Palette rows */}
+      {palettes.map((palette) => {
+        const steps = getActiveSteps(palette);
+        return (
+          <div
+            key={palette.id}
+            ref={(el) => attachRef(el, palette.id)}
+            className="flex items-stretch border-b border-neutral-200 dark:border-neutral-800 group"
+          >
+            {/* Name cell */}
+            <div
+              className="w-36 flex-shrink-0 flex items-center px-4 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
+              onClick={() => onSelectPalette(palette.id)}
+            >
+              <span className="text-[12px] font-medium text-neutral-700 dark:text-neutral-300 truncate">
+                {palette.name}
+              </span>
+            </div>
+
+            {/* Step cells */}
+            {steps.map((step) => {
+              const lum = relativeLuminance(step.hex);
+              const textColor = lum > 0.18 ? "#111111" : "#ffffff";
+              return (
+                <div
+                  key={step.label}
+                  className="flex-1 cursor-pointer relative flex items-end justify-center pb-1.5 group/cell"
+                  style={{ backgroundColor: step.hex, height: 44 }}
+                  onClick={() => onSelectAndOpenStep(palette.id, step.label)}
+                >
+                  <span
+                    className="text-[9px] font-mono select-none opacity-0 group-hover/cell:opacity-60 transition-opacity"
+                    style={{ color: textColor }}
+                  >
+                    {step.hex.slice(1).toUpperCase()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+export function ProjectScreen() {
+  const isDirty = useProjectStore((s) => s.isDirty);
+  const closeProject = useProjectStore((s) => s.closeProject);
+  const saveNow = useProjectStore((s) => s.saveNow);
+  const palettes = useProjectStore((s) => s.activeProject?.palettes ?? []);
+  const stepCount = useProjectStore((s) => s.activeProject?.stepCount ?? 10);
+  const backgrounds = useProjectStore((s) => s.activeProject?.backgrounds);
+  const updateBackgrounds = useProjectStore((s) => s.updateBackgrounds);
+  const updateProjectStepCount = useProjectStore((s) => s.updateProjectStepCount);
+  const switchProjectPaletteMode = useProjectStore((s) => s.switchProjectPaletteMode);
+  const labelScale = useProjectStore((s) => s.activeProject?.labelScale ?? DEFAULT_LABEL_SCALE);
+  const setLabelScale = useProjectStore((s) => s.setLabelScale);
+
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [tableCollapsed, setTableCollapsed] = useState(false);
+  const [openPanelKey, setOpenPanelKey] = useState<{ paletteId: string; stepLabel: number } | null>(null);
+  const [selectedPaletteId, setSelectedPaletteId] = useState<string | null>(null);
+
+  const paletteRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  function handleOpenStep(paletteId: string, stepLabel: number | null) {
+    setOpenPanelKey(stepLabel === null ? null : { paletteId, stepLabel });
+  }
+
+  function handleSelectPalette(id: string | null) {
+    setSelectedPaletteId(id);
+    setOpenPanelKey(null);
+    if (id) {
+      const el = paletteRefs.current.get(id);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }
+
+  // Navigate to palette detail view and pre-open a specific step panel
+  function handleSelectAndOpenStep(paletteId: string, stepLabel: number) {
+    setSelectedPaletteId(paletteId);
+    setOpenPanelKey({ paletteId, stepLabel });
+    const el = paletteRefs.current.get(paletteId);
+    el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  const selectedPalette = selectedPaletteId
+    ? (palettes.find((p) => p.id === selectedPaletteId) ?? null)
+    : null;
+
+  const openPalette = openPanelKey
+    ? (palettes.find((p) => p.id === openPanelKey.paletteId) ?? null)
+    : null;
+  const openStep =
+    openPalette && openPanelKey
+      ? (getActiveSteps(openPalette).find((s) => s.label === openPanelKey.stepLabel) ?? null)
+      : null;
+
+  const { isDark, toggle } = useTheme();
+  const swatchCount = stepCount + 1;
+
+  useAutoSave();
+  useBeforeUnload();
+
+  function handleBack() {
+    if (isDirty) setShowLeaveModal(true);
+    else closeProject();
+  }
+
+  return (
+    <div className="h-screen flex overflow-hidden bg-neutral-50 dark:bg-neutral-950">
+
+      {/* ── Left sidebar ── */}
+      <ProjectSidebar
+        onBack={handleBack}
+        selectedPaletteId={selectedPaletteId}
+        onSelectPalette={handleSelectPalette}
+      />
+
+      {/* ── Main area ── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+
+        {/* Header */}
+        <header className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+          <SavedTimestamp />
+          <div className="flex-1" />
+
+          {palettes.length > 0 && backgrounds && (
+            <div className="flex items-center gap-2 border-l border-neutral-200 dark:border-neutral-700 pl-3">
+              <CompactBgInput
+                value={isDark ? backgrounds.dark : backgrounds.light}
+                label={isDark ? "Dark bg" : "Light bg"}
+                onCommit={(hex) => updateBackgrounds(isDark
+                  ? { ...backgrounds, dark: hex }
+                  : { ...backgrounds, light: hex }
+                )}
+              />
+            </div>
+          )}
+
+          {palettes.length > 0 && (
+            <div className="flex items-center gap-1 border-l border-neutral-200 dark:border-neutral-700 pl-3">
+              <button
+                onClick={() => updateProjectStepCount(stepCount - 1)}
+                disabled={stepCount <= MIN_STEPS}
+                className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+              >−</button>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400 w-14 text-center tabular-nums">
+                {swatchCount} steps
+              </span>
+              <button
+                onClick={() => updateProjectStepCount(stepCount + 1)}
+                disabled={stepCount >= MAX_STEPS}
+                className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+              >+</button>
+            </div>
+          )}
+
+          <ThemeToggle
+            isDark={isDark}
+            onToggle={() => {
+              const nextMode = isDark ? "light" : "dark";
+              if (palettes.length > 0) switchProjectPaletteMode(nextMode);
+              toggle();
+            }}
+          />
+
+          {palettes.length > 0 && (
+            <button
+              onClick={() => setShowExport(true)}
+              className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 transition-colors"
+            >
+              Export
+            </button>
+          )}
+        </header>
+
+        {/* Content + optional step detail panel */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* ── Detail view: selected palette steps fill the content area ── */}
+          {selectedPalette ? (
+            <div className="flex flex-row flex-1 overflow-hidden">
+              {getActiveSteps(selectedPalette).map((step) => {
+                const lum = relativeLuminance(step.hex);
+                const textColor = lum > 0.18 ? "#111111" : "#ffffff";
+                const isOpen = openPanelKey?.paletteId === selectedPalette.id && openPanelKey.stepLabel === step.label;
+                return (
+                  <div
+                    key={step.label}
+                    className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative"
+                    style={{ backgroundColor: step.hex }}
+                    onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
+                  >
+                    {isOpen && (
+                      <div
+                        className="absolute inset-x-0 top-0 h-[3px]"
+                        style={{ backgroundColor: textColor, opacity: 0.5 }}
+                      />
+                    )}
+                    <span
+                      className="text-[10px] font-mono select-none"
+                      style={{ color: textColor, opacity: isOpen ? 1 : 0.5 }}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+          ) : (
+            /* ── All colors view ── */
+            <main className="flex-1 overflow-hidden flex flex-col">
+
+              {palettes.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-sm text-neutral-400 dark:text-neutral-500">
+                    Add a color from the sidebar to get started.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Toolbar */}
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+
+                    {/* Label scale selector */}
+                    <div className="flex items-center rounded-md border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                      {(["0-10", "0-100", "0-1000"] as LabelScale[]).map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setLabelScale(s)}
+                          className={`px-2.5 h-7 text-[11px] font-mono transition-colors ${
+                            labelScale === s
+                              ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                              : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* View toggle */}
+                    <div className="flex items-center rounded-md border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                      <button
+                        onClick={() => setTableCollapsed(false)}
+                        title="Expanded"
+                        className={`w-7 h-7 flex items-center justify-center transition-colors ${
+                          !tableCollapsed
+                            ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                            : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                        }`}
+                      >
+                        <IconTable size={13} stroke={1.75} />
+                      </button>
+                      <button
+                        onClick={() => setTableCollapsed(true)}
+                        title="Collapsed"
+                        className={`w-7 h-7 flex items-center justify-center transition-colors ${
+                          tableCollapsed
+                            ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
+                            : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                        }`}
+                      >
+                        <IconLayoutGrid size={13} stroke={1.75} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <ColorTable
+                    palettes={palettes}
+                    collapsed={tableCollapsed}
+                    onSelectPalette={handleSelectPalette}
+                    onSelectAndOpenStep={handleSelectAndOpenStep}
+                    paletteRefs={paletteRefs}
+                  />
+                </>
+              )}
+            </main>
+          )}
+
+          {/* Step detail panel */}
+          {openStep && openPalette && (
+            <StepDetailPanel
+              palette={openPalette}
+              step={openStep}
+              onClose={() => setOpenPanelKey(null)}
+              onDeletePalette={() => handleSelectPalette(null)}
+            />
+          )}
+        </div>
+      </div>
+
+      {showLeaveModal && (
+        <ConfirmLeaveModal
+          onSave={() => { saveNow(); setShowLeaveModal(false); closeProject(); }}
+          onDiscard={() => { setShowLeaveModal(false); closeProject(); }}
+          onCancel={() => setShowLeaveModal(false)}
+        />
+      )}
+      {showExport && (
+        <ExportModal scope="project" onClose={() => setShowExport(false)} />
+      )}
+    </div>
+  );
+}
