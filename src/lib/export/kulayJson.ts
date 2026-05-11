@@ -1,26 +1,32 @@
 import type { Project, Palette } from '../../types/project'
+import { triggerDownload } from './download'
 
 function toKebab(name: string): string {
   return name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 }
 
+// ── String builders (for clipboard copy) ─────────────────────────────────────
+
+export function projectKulayJson(project: Project): string {
+  return JSON.stringify({ ...project, savedAt: Date.now() }, null, 2)
+}
+
+export function paletteKulayJson(project: Project, palette: Palette): string {
+  return JSON.stringify({ ...project, palettes: [palette], savedAt: Date.now() }, null, 2)
+}
+
+// ── File downloads ────────────────────────────────────────────────────────────
+
 export function exportProjectKulay(project: Project): void {
-  const payload = { ...project, savedAt: Date.now() }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  download(blob, `kulay-${toKebab(project.name)}.json`)
+  triggerDownload(
+    new Blob([projectKulayJson(project)], { type: 'application/json' }),
+    `kulay-${toKebab(project.name)}.json`,
+  )
 }
 
 export function exportPaletteKulay(project: Project, palette: Palette): void {
-  const payload = { ...project, palettes: [palette], savedAt: Date.now() }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  download(blob, `kulay-${toKebab(palette.name)}.json`)
-}
-
-function download(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
+  triggerDownload(
+    new Blob([paletteKulayJson(project, palette)], { type: 'application/json' }),
+    `kulay-${toKebab(palette.name)}.json`,
+  )
 }
