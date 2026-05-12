@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { IconPencil, IconTrash } from '@tabler/icons-react'
 import { ButtonSmall } from '../ui/ButtonSmall'
 import type { Project } from '../../types/project'
+import { getActiveSteps } from '../../types/project'
 
 interface Props {
   project: Project
@@ -45,7 +46,24 @@ export function ProjectCard({ project, onOpen, onRename, onRemove }: Props) {
     : `${project.palettes.length} palette${project.palettes.length === 1 ? '' : 's'}`
 
   return (
-    <div className="group relative w-full rounded-xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:shadow-sm transition-all">
+    <div className="group relative w-full rounded-xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:shadow-sm transition-all overflow-hidden">
+
+      {/* Color preview strip */}
+      {project.palettes.length > 0 && (
+        <div className="flex h-16 w-full">
+          {project.palettes.map((palette) => {
+            const steps = getActiveSteps(palette)
+            return (
+              <div key={palette.id} className="flex flex-col flex-1 min-w-0">
+                {steps.map((step) => (
+                  <div key={step.label} className="flex-1" style={{ backgroundColor: step.hex }} />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       <button
         onClick={() => !editing && onOpen(project.id)}
         className="w-full text-left p-5 pr-20"
