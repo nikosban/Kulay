@@ -31,6 +31,15 @@ function hueChromaMultiplier(H: number, stepFraction: number): number {
 
 function hueShift(H: number, stepFraction: number): number {
   const lightness = 1 - stepFraction
+  // Reds: lighter steps drift toward orange — pull back toward red/magenta
+  if ((H >= 0 && H <= 25) || (H >= 345 && H <= 360)) {
+    return -3 * Math.pow(lightness, 2)
+  }
+  // Blues: lighter steps drift toward cyan — pull back toward blue/indigo
+  if (H >= 210 && H <= 260) {
+    return 4 * Math.pow(lightness, 2)
+  }
+  // Purples: lighter steps drift toward blue — push toward red/pink
   if (H >= 291 && H <= 320) {
     return 5 * Math.pow(lightness, 2)
   }
@@ -38,9 +47,9 @@ function hueShift(H: number, stepFraction: number): number {
 }
 
 // Chroma envelope anchored at base step, tapering toward extremes.
-// FLOOR of 0.25 ensures lightest/darkest steps retain hue rather than going gray.
+// FLOOR of 0.07 lets extreme steps fade toward near-gray for a natural tint feel.
 function envelope(t: number, tBase: number, exponent = 0.75): number {
-  const FLOOR = 0.25
+  const FLOOR = 0.07
   if (tBase <= 0) return t <= 0 ? 1 : Math.max(FLOOR, Math.pow(1 - t, exponent))
   if (tBase >= 1) return t >= 1 ? 1 : Math.max(FLOOR, Math.pow(t, exponent))
   return t <= tBase
