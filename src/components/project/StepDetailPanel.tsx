@@ -280,7 +280,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
           onClick={() => recalibratePaletteToStep(palette.id, step.label)}
           className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:text-fg-base dark:hover:text-fg-base-dark bg-surface-control dark:bg-surface-control-dark transition-colors"
         >
-          Recalibrate scale to this hue
+          Recalibrate scale
         </button>
 
         <button
