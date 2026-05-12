@@ -377,7 +377,7 @@ export function ProjectScreen() {
       )}
 
       {/* ── Floating toolbar ── */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-2 py-1.5 rounded-2xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark shadow-lg shadow-black/10 dark:shadow-black/40">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 p-2 rounded-2xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark shadow-lg shadow-black/10 dark:shadow-black/40">
 
         {palettes.length > 0 && backgrounds && (
           <>
@@ -391,7 +391,7 @@ export function ProjectScreen() {
                 )}
               />
             </div>
-            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark flex-shrink-0" />
           </>
         )}
 
@@ -414,7 +414,7 @@ export function ProjectScreen() {
                 className="w-7 h-7 flex items-center justify-center text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
               >+</button>
             </div>
-            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark flex-shrink-0" />
           </>
         )}
 
@@ -429,7 +429,7 @@ export function ProjectScreen() {
 
         {palettes.length > 0 && (
           <>
-            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark flex-shrink-0" />
             <button
               onClick={() => setShowExport(true)}
               className="text-sm font-medium px-3 py-1 rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
