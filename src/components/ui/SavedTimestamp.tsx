@@ -20,7 +20,7 @@ export function SavedTimestamp() {
   if (lastSavedAt === null) return null
 
   return (
-    <span className="text-xs text-neutral-400 dark:text-neutral-500 select-none">
+    <span className="text-xs text-fg-placeholder dark:text-fg-placeholder-dark select-none">
       {formatRelative(lastSavedAt)}
     </span>
   )

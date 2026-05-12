@@ -42,7 +42,7 @@ function CompactBgInput({ value, label, onCommit }: {
   return (
     <div className="flex items-center gap-1.5">
       <div
-        className="relative w-4 h-4 rounded flex-shrink-0 overflow-hidden cursor-pointer border border-neutral-200 dark:border-neutral-600"
+        className="relative w-4 h-4 rounded flex-shrink-0 overflow-hidden cursor-pointer border border-bd-base dark:border-bd-hover-dark"
         style={{ backgroundColor: value }}
       >
         <input
@@ -54,10 +54,10 @@ function CompactBgInput({ value, label, onCommit }: {
         />
       </div>
       <div className="flex items-center">
-        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 select-none mr-0.5">#</span>
+        <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark select-none mr-0.5">#</span>
         <input
           type="text"
-          className="w-16 text-[11px] font-mono text-neutral-700 dark:text-neutral-300 bg-transparent outline-none"
+          className="w-16 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
           value={editing ? inputVal : value.slice(1).toUpperCase()}
           maxLength={8}
           spellCheck={false}
@@ -83,7 +83,6 @@ function ColorTable({ palettes, collapsed, onSelectPalette, onSelectAndOpenStep,
   onSelectAndOpenStep: (paletteId: string, stepLabel: number) => void
   paletteRefs: React.MutableRefObject<Map<string, HTMLDivElement>>
 }) {
-  // Use the first palette's labels as column headers (project-wide step count keeps them aligned)
   const columnLabels = palettes[0] ? getActiveSteps(palettes[0]).map((s) => s.label) : [];
 
   function attachRef(el: HTMLDivElement | null, paletteId: string) {
@@ -91,7 +90,7 @@ function ColorTable({ palettes, collapsed, onSelectPalette, onSelectAndOpenStep,
     else paletteRefs.current.delete(paletteId);
   }
 
-  // ── Collapsed: tight color strips, no gaps, no labels ──────────────────────
+  // ── Collapsed: tight color strips ──────────────────────────────────────────
   if (collapsed) {
     return (
       <div className="flex-1 overflow-y-auto">
@@ -123,12 +122,12 @@ function ColorTable({ palettes, collapsed, onSelectPalette, onSelectAndOpenStep,
   return (
     <div className="flex-1 overflow-auto">
       {/* Sticky header row */}
-      <div className="flex sticky top-0 z-10 bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800">
+      <div className="flex sticky top-0 z-10 bg-surface-page dark:bg-surface-page-dark border-b border-bd-base dark:border-bd-base-dark">
         <div className="w-36 flex-shrink-0" />
         {columnLabels.map((label) => (
           <div
             key={label}
-            className="flex-1 py-2 text-center text-[10px] font-mono text-neutral-400 dark:text-neutral-500 select-none"
+            className="flex-1 py-2 text-center text-[10px] font-mono text-fg-placeholder dark:text-fg-placeholder-dark select-none"
           >
             {label}
           </div>
@@ -142,14 +141,14 @@ function ColorTable({ palettes, collapsed, onSelectPalette, onSelectAndOpenStep,
           <div
             key={palette.id}
             ref={(el) => attachRef(el, palette.id)}
-            className="flex items-stretch border-b border-neutral-200 dark:border-neutral-800 group"
+            className="flex items-stretch border-b border-bd-base dark:border-bd-base-dark group"
           >
             {/* Name cell */}
             <div
-              className="w-36 flex-shrink-0 flex items-center px-4 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-800/60 transition-colors"
+              className="w-36 flex-shrink-0 flex items-center px-4 cursor-pointer hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
               onClick={() => onSelectPalette(palette.id)}
             >
-              <span className="text-[12px] font-medium text-neutral-700 dark:text-neutral-300 truncate">
+              <span className="text-[12px] font-medium text-fg-subtle dark:text-fg-subtle-dark truncate">
                 {palette.name}
               </span>
             </div>
@@ -217,7 +216,6 @@ export function ProjectScreen() {
     }
   }
 
-  // Navigate to palette detail view and pre-open a specific step panel
   function handleSelectAndOpenStep(paletteId: string, stepLabel: number) {
     setSelectedPaletteId(paletteId);
     setOpenPanelKey({ paletteId, stepLabel });
@@ -249,7 +247,7 @@ export function ProjectScreen() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden bg-neutral-50 dark:bg-neutral-950">
+    <div className="h-screen flex overflow-hidden bg-surface-page dark:bg-surface-page-dark">
 
       {/* ── Left sidebar ── */}
       <ProjectSidebar
@@ -262,12 +260,12 @@ export function ProjectScreen() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* Header */}
-        <header className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
+        <header className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
           <SavedTimestamp />
           <div className="flex-1" />
 
           {palettes.length > 0 && backgrounds && (
-            <div className="flex items-center gap-2 border-l border-neutral-200 dark:border-neutral-700 pl-3">
+            <div className="flex items-center gap-2 border-l border-bd-base dark:border-bd-base-dark pl-3">
               <CompactBgInput
                 value={isDark ? backgrounds.dark : backgrounds.light}
                 label={isDark ? "Dark bg" : "Light bg"}
@@ -280,19 +278,19 @@ export function ProjectScreen() {
           )}
 
           {palettes.length > 0 && (
-            <div className="flex items-center gap-1 border-l border-neutral-200 dark:border-neutral-700 pl-3">
+            <div className="flex items-center gap-1 border-l border-bd-base dark:border-bd-base-dark pl-3">
               <button
                 onClick={() => updateProjectStepCount(stepCount - 1)}
                 disabled={stepCount <= MIN_STEPS}
-                className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
               >−</button>
-              <span className="text-xs text-neutral-500 dark:text-neutral-400 w-14 text-center tabular-nums">
+              <span className="text-xs text-fg-muted dark:text-fg-muted-dark w-14 text-center tabular-nums">
                 {swatchCount} steps
               </span>
               <button
                 onClick={() => updateProjectStepCount(stepCount + 1)}
                 disabled={stepCount >= MAX_STEPS}
-                className="w-6 h-6 flex items-center justify-center rounded text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+                className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
               >+</button>
             </div>
           )}
@@ -309,7 +307,7 @@ export function ProjectScreen() {
           {palettes.length > 0 && (
             <button
               onClick={() => setShowExport(true)}
-              className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white border border-neutral-200 dark:border-neutral-700 rounded-lg px-3 py-1.5 transition-colors"
+              className="text-sm text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg px-3 py-1.5 transition-colors"
             >
               Export
             </button>
@@ -356,25 +354,25 @@ export function ProjectScreen() {
 
               {palettes.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-sm text-neutral-400 dark:text-neutral-500">
+                  <p className="text-sm text-fg-placeholder dark:text-fg-placeholder-dark">
                     Add a color from the sidebar to get started.
                   </p>
                 </div>
               ) : (
                 <>
                   {/* Toolbar */}
-                  <div className="flex items-center justify-between px-3 py-2 border-b border-neutral-200 dark:border-neutral-800 flex-shrink-0">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
 
                     {/* Label scale selector */}
-                    <div className="flex items-center rounded-md border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                    <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
                       {(["0-10", "0-100", "0-1000"] as LabelScale[]).map((s) => (
                         <button
                           key={s}
                           onClick={() => setLabelScale(s)}
                           className={`px-2.5 h-7 text-[11px] font-mono transition-colors ${
                             labelScale === s
-                              ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
-                              : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                              ? "bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark"
+                              : "text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark"
                           }`}
                         >
                           {s}
@@ -383,14 +381,14 @@ export function ProjectScreen() {
                     </div>
 
                     {/* View toggle */}
-                    <div className="flex items-center rounded-md border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                    <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
                       <button
                         onClick={() => setTableCollapsed(false)}
                         title="Expanded"
                         className={`w-7 h-7 flex items-center justify-center transition-colors ${
                           !tableCollapsed
-                            ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
-                            : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                            ? "bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark"
+                            : "text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark"
                         }`}
                       >
                         <IconTable size={13} stroke={1.75} />
@@ -400,8 +398,8 @@ export function ProjectScreen() {
                         title="Collapsed"
                         className={`w-7 h-7 flex items-center justify-center transition-colors ${
                           tableCollapsed
-                            ? "bg-neutral-200 dark:bg-neutral-700 text-neutral-900 dark:text-white"
-                            : "text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300"
+                            ? "bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark"
+                            : "text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark"
                         }`}
                       >
                         <IconLayoutGrid size={13} stroke={1.75} />

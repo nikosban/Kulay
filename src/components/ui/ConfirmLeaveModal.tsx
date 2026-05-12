@@ -7,27 +7,27 @@ interface Props {
 export function ConfirmLeaveModal({ onSave, onDiscard, onCancel }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-white mb-2">Unsaved changes</h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-6">
+      <div className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+        <h2 className="text-base font-semibold text-fg-base dark:text-fg-base-dark mb-2">Unsaved changes</h2>
+        <p className="text-sm text-fg-muted dark:text-fg-muted-dark mb-6">
           You have unsaved changes. Save before leaving?
         </p>
         <div className="flex flex-col gap-2">
           <button
             onClick={onSave}
-            className="w-full rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium py-2 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors"
+            className="w-full rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium py-2 hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
           >
             Save
           </button>
           <button
             onClick={onDiscard}
-            className="w-full rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-700 dark:text-neutral-300 text-sm font-medium py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            className="w-full rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-subtle dark:text-fg-subtle-dark text-sm font-medium py-2 hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
           >
             Discard
           </button>
           <button
             onClick={onCancel}
-            className="w-full rounded-lg text-neutral-500 dark:text-neutral-400 text-sm font-medium py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+            className="w-full rounded-lg text-fg-muted dark:text-fg-muted-dark text-sm font-medium py-2 hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
           >
             Cancel
           </button>

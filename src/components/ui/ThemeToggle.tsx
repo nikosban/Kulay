@@ -24,7 +24,7 @@ export function ThemeToggle({ isDark, onToggle, title }: Props) {
     <button
       onClick={onToggle}
       title={title ?? (isDark ? 'Switch to light mode' : 'Switch to dark mode')}
-      className="w-8 h-8 flex items-center justify-center rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:text-neutral-800 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+      className="w-8 h-8 flex items-center justify-center rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
     </button>

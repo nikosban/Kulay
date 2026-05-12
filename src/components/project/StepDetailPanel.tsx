@@ -44,7 +44,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       onClick={copy}
       title="Copy"
-      className="w-7 h-7 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors flex-shrink-0"
+      className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors flex-shrink-0"
     >
       {copied ? (
         <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
@@ -80,15 +80,15 @@ function EditableMultiValueRow({
 
   return (
     <div className="flex items-center gap-1">
-      <div className="flex flex-1 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-600 divide-x divide-neutral-200 dark:divide-neutral-600">
+      <div className="flex flex-1 rounded-lg overflow-hidden border border-bd-base dark:border-bd-hover-dark divide-x divide-bd-base dark:divide-bd-hover-dark">
         {keys.map((key, idx) => (
-          <div key={key} className="flex items-center gap-1 px-2 py-1.5 flex-1 min-w-0 bg-white dark:bg-neutral-800">
-            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 flex-shrink-0">{key}</span>
+          <div key={key} className="flex items-center gap-1 px-2 py-1.5 flex-1 min-w-0 bg-surface-control dark:bg-surface-control-dark">
+            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0">{key}</span>
             {editingIdx === idx ? (
               <input
                 autoFocus
                 type="text"
-                className="flex-1 min-w-0 text-[11px] font-mono text-neutral-700 dark:text-neutral-300 bg-transparent outline-none"
+                className="flex-1 min-w-0 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
                 value={editValue}
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => setEditValue(e.target.value)}
@@ -103,7 +103,7 @@ function EditableMultiValueRow({
               />
             ) : (
               <span
-                className="flex-1 min-w-0 text-[11px] font-mono text-neutral-700 dark:text-neutral-300 truncate cursor-text"
+                className="flex-1 min-w-0 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark truncate cursor-text"
                 onClick={() => { setEditingIdx(idx); setEditValue(rawValues[idx]!) }}
               >
                 {displays[idx]}
@@ -192,10 +192,10 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
   }
 
   return (
-    <div className="w-[300px] flex-shrink-0 border-l border-neutral-200 dark:border-neutral-700 bg-[#F0F0F0] dark:bg-neutral-900 flex flex-col overflow-y-auto">
+    <div className="w-[300px] flex-shrink-0 border-l border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark flex flex-col overflow-y-auto">
 
       {/* ── Palette ── */}
-      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-neutral-200 dark:border-neutral-700 flex-shrink-0">
+      <div className="flex items-center gap-1.5 px-3 py-2.5 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
         {nameEditing ? (
           <input
             autoFocus
@@ -209,13 +209,13 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
             }}
             onFocus={(e) => e.target.select()}
             spellCheck={false}
-            className="flex-1 min-w-0 text-[13px] font-semibold text-neutral-900 dark:text-white bg-transparent outline-none border-b border-neutral-400 dark:border-neutral-500 pb-px"
+            className="flex-1 min-w-0 text-[13px] font-semibold text-fg-base dark:text-fg-base-dark bg-transparent outline-none border-b border-bd-strong dark:border-bd-strong-dark pb-px"
           />
         ) : (
           <button
             onClick={startNameEdit}
             title="Click to rename"
-            className="flex-1 min-w-0 text-left text-[13px] font-semibold text-neutral-900 dark:text-white truncate hover:opacity-60 transition-opacity"
+            className="flex-1 min-w-0 text-left text-[13px] font-semibold text-fg-base dark:text-fg-base-dark truncate hover:opacity-60 transition-opacity"
           >
             {palette.name}
           </button>
@@ -223,50 +223,50 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
         <button
           onClick={handleDeletePalette}
           title="Delete color scale"
-          className="w-7 h-7 flex items-center justify-center rounded text-neutral-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex-shrink-0"
+          className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark transition-colors flex-shrink-0"
         >
           <IconTrash size={14} stroke={1.75} />
         </button>
       </div>
 
       {/* ── Lightness range ── */}
-      <div className="flex flex-col gap-2.5 p-3 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12">Lightest</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
           <input
             type="range" min={75} max={99} step={1}
             value={Math.round(effectiveRange.lightest * 100)}
             onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: Number(e.target.value) / 100 })}
             className="flex-1 accent-neutral-700 dark:accent-neutral-300"
           />
-          <span className="text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400 w-6 text-right">
+          <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
             {Math.round(effectiveRange.lightest * 100)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-12">Darkest</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Darkest</span>
           <input
             type="range" min={5} max={30} step={1}
             value={Math.round(effectiveRange.darkest * 100)}
             onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: Number(e.target.value) / 100 })}
             className="flex-1 accent-neutral-700 dark:accent-neutral-300"
           />
-          <span className="text-[10px] tabular-nums text-neutral-500 dark:text-neutral-400 w-6 text-right">
+          <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
             {Math.round(effectiveRange.darkest * 100)}
           </span>
         </div>
       </div>
 
       {/* ── Preview ── */}
-      <div className="flex flex-col gap-2 p-3 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-neutral-400 dark:text-neutral-500">Preview</span>
+          <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark">Preview</span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-300">{stepName}</span>
-            {step.isBase && <span className="text-[9px] text-neutral-400 dark:text-neutral-500">Base</span>}
+            <span className="text-[11px] font-medium text-fg-muted dark:text-fg-subtle-dark">{stepName}</span>
+            {step.isBase && <span className="text-[9px] text-fg-placeholder dark:text-fg-placeholder-dark">Base</span>}
             <button
               onClick={onClose}
-              className="w-5 h-5 flex items-center justify-center rounded text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors text-base leading-none"
+              className="w-5 h-5 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors text-base leading-none"
             >
               ×
             </button>
@@ -277,7 +277,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
 
         <button
           onClick={() => recalibratePaletteToStep(palette.id, step.label)}
-          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-500 dark:text-neutral-400 hover:border-neutral-400 dark:hover:border-neutral-500 hover:text-neutral-800 dark:hover:text-white bg-white dark:bg-neutral-800 transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:text-fg-base dark:hover:text-fg-base-dark bg-surface-control dark:bg-surface-control-dark transition-colors"
         >
           Recalibrate scale to this hue
         </button>
@@ -285,7 +285,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
         <button
           onClick={() => { deleteStep(palette.id, step.label); onClose() }}
           disabled={!canDelete}
-          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 text-neutral-400 dark:text-neutral-500 hover:border-red-300 dark:hover:border-red-800 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 bg-white dark:bg-neutral-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-placeholder dark:text-fg-placeholder-dark hover:border-bd-danger dark:hover:border-bd-danger-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark bg-surface-control dark:bg-surface-control-dark disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           <IconTrash size={12} stroke={1.75} />
           Delete step
@@ -293,16 +293,16 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
       </div>
 
       {/* ── Values ── */}
-      <div className="flex flex-col gap-2 p-3 border-b border-neutral-200 dark:border-neutral-700">
+      <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Values</span>
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">{stepName}</span>
+          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Values</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">{stepName}</span>
         </div>
 
         {/* Hex */}
         <div className="flex items-center gap-1">
-          <div className={`flex items-center flex-1 gap-1.5 px-2 py-1.5 bg-white dark:bg-neutral-800 rounded-lg border transition-colors ${
-            hexError ? 'border-red-400' : 'border-neutral-200 dark:border-neutral-600 focus-within:border-neutral-400'
+          <div className={`flex items-center flex-1 gap-1.5 px-2 py-1.5 bg-surface-control dark:bg-surface-control-dark rounded-lg border transition-colors ${
+            hexError ? 'border-bd-danger' : 'border-bd-base dark:border-bd-hover-dark focus-within:border-bd-strong'
           }`}>
             <div className="relative w-4 h-4 rounded flex-shrink-0 overflow-hidden cursor-pointer" style={{ backgroundColor: step.hex }}>
               <input
@@ -315,7 +315,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
             </div>
             <input
               type="text"
-              className="flex-1 min-w-0 text-[11px] font-mono text-neutral-800 dark:text-neutral-200 bg-transparent outline-none"
+              className="flex-1 min-w-0 text-[11px] font-mono text-fg-base dark:text-fg-subtle-dark bg-transparent outline-none"
               value={hexEditing ? hexInput : step.hex.slice(1).toUpperCase()}
               onFocus={(e) => { setHexInput(step.hex.slice(1).toUpperCase()); setHexEditing(true); setHexError(''); e.target.select() }}
               onChange={(e) => setHexInput(e.target.value)}
@@ -323,11 +323,11 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
               spellCheck={false}
             />
-            <span className="text-[10px] text-neutral-400 dark:text-neutral-500 flex-shrink-0">100%</span>
+            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0">100%</span>
           </div>
           <CopyButton text={hexStr} />
         </div>
-        {hexError && <p className="text-[10px] text-red-500 -mt-1">{hexError}</p>}
+        {hexError && <p className="text-[10px] text-fg-danger -mt-1">{hexError}</p>}
 
         {/* OKLCH */}
         <EditableMultiValueRow
@@ -371,16 +371,15 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
 
       {/* ── WCAG Check ── */}
       <div className="flex flex-col gap-2 p-3">
-        {/* Header */}
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">WCAG Check</span>
+          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">WCAG Check</span>
         </div>
 
         {/* Column labels */}
         <div className="flex items-center gap-2 px-2">
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 flex-1 text-left">Step</span>
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-10 text-right">Ratio</span>
-          <span className="text-[10px] text-neutral-400 dark:text-neutral-500 w-[52px] text-center">Level</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-1 text-left">Step</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-10 text-right">Ratio</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-[52px] text-center">Level</span>
         </div>
 
         {/* Step rows */}
@@ -401,23 +400,18 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
                 }`}
                 style={{ backgroundColor: bgStep.hex }}
               >
-                {/* Label */}
                 <span
                   className={`flex-1 text-[11px] font-mono leading-none ${isCurrent ? 'font-semibold' : ''}`}
                   style={{ color: textColor }}
                 >
                   {bgStep.label}
                 </span>
-
-                {/* Ratio */}
                 <span
                   className="text-[11px] font-mono w-10 text-right leading-none"
                   style={{ color: textColor, opacity: 0.8 }}
                 >
                   {cr.toFixed(2)}
                 </span>
-
-                {/* Badge */}
                 <span
                   className="text-[9px] font-semibold px-1.5 py-0.5 rounded w-[52px] text-center leading-tight"
                   style={{ color: textColor, backgroundColor: badgeBg }}

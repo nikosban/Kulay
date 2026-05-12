@@ -205,25 +205,25 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+      <div className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-bd-base dark:border-bd-base-dark">
           <div className="flex items-center gap-2">
             {step !== 'choose' && (
               <button
                 onClick={goBack}
-                className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                className="text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-base dark:hover:text-fg-base-dark transition-colors"
                 aria-label="Back"
               >
                 <IconArrowLeft size={17} />
               </button>
             )}
-            <h2 className="text-sm font-semibold text-neutral-900 dark:text-white">{headerTitle}</h2>
+            <h2 className="text-sm font-semibold text-fg-base dark:text-fg-base-dark">{headerTitle}</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-colors"
+            className="text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-base dark:hover:text-fg-base-dark transition-colors"
             aria-label="Close"
           >
             <IconX size={17} />
@@ -239,28 +239,28 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
               {/* Empty */}
               <button
                 onClick={handleChooseEmpty}
-                className="w-full text-left rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3.5 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="w-full text-left rounded-xl border border-bd-base dark:border-bd-base-dark px-4 py-3.5 hover:border-bd-strong dark:hover:border-bd-strong-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
               >
-                <div className="text-sm font-medium text-neutral-900 dark:text-white mb-0.5">Empty</div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">Start with a blank canvas. Add palettes manually.</div>
+                <div className="text-sm font-medium text-fg-base dark:text-fg-base-dark mb-0.5">Empty</div>
+                <div className="text-xs text-fg-muted dark:text-fg-muted-dark">Start with a blank canvas. Add palettes manually.</div>
               </button>
 
               {/* Branded */}
               <button
                 onClick={() => setStep('branded-colors')}
-                className="w-full text-left rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3.5 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="w-full text-left rounded-xl border border-bd-base dark:border-bd-base-dark px-4 py-3.5 hover:border-bd-strong dark:hover:border-bd-strong-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
               >
-                <div className="text-sm font-medium text-neutral-900 dark:text-white mb-0.5">Branded</div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400">Enter your brand colors. We'll suggest harmonious companions.</div>
+                <div className="text-sm font-medium text-fg-base dark:text-fg-base-dark mb-0.5">Branded</div>
+                <div className="text-xs text-fg-muted dark:text-fg-muted-dark">Enter your brand colors. We'll suggest harmonious companions.</div>
               </button>
 
               {/* Starter */}
               <button
                 onClick={handleChooseStarter}
-                className="w-full text-left rounded-xl border border-neutral-200 dark:border-neutral-700 px-4 py-3.5 hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                className="w-full text-left rounded-xl border border-bd-base dark:border-bd-base-dark px-4 py-3.5 hover:border-bd-strong dark:hover:border-bd-strong-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
               >
-                <div className="text-sm font-medium text-neutral-900 dark:text-white mb-0.5">Starter palette</div>
-                <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-3">A ready-made set: neutral, red, blue, green, gold, and purple.</div>
+                <div className="text-sm font-medium text-fg-base dark:text-fg-base-dark mb-0.5">Starter palette</div>
+                <div className="text-xs text-fg-muted dark:text-fg-muted-dark mb-3">A ready-made set: neutral, red, blue, green, gold, and purple.</div>
                 <div className="flex gap-1.5">
                   {STARTER_HEXES.map((hex, i) => (
                     <div
@@ -277,7 +277,7 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
           {/* ── Branded: Color inputs ──────────────────────────────────────── */}
           {step === 'branded-colors' && (
             <div className="flex flex-col gap-4">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              <p className="text-xs text-fg-muted dark:text-fg-muted-dark">
                 Enter up to 3 core brand colors. Hex, oklch, hsl, or rgb all work.
               </p>
 
@@ -285,7 +285,7 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                 {colorRows.map((row) => (
                   <div key={row.id} className="flex items-center gap-2">
                     {/* Color swatch + native picker */}
-                    <label className="relative w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden border border-neutral-200 dark:border-neutral-700 cursor-pointer">
+                    <label className="relative w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden border border-bd-base dark:border-bd-base-dark cursor-pointer">
                       <div
                         className="absolute inset-0"
                         style={{ backgroundColor: row.hex ?? '#e5e5e5' }}
@@ -308,12 +308,12 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                       spellCheck={false}
                       className={[
                         'flex-1 px-3 py-1.5 rounded-lg border text-sm',
-                        'bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white',
-                        'placeholder-neutral-400 dark:placeholder-neutral-600',
+                        'bg-surface-control dark:bg-surface-control-dark text-fg-base dark:text-fg-base-dark',
+                        'placeholder-fg-placeholder dark:placeholder-fg-placeholder-dark',
                         'outline-none focus:ring-2 transition-colors',
                         row.error
-                          ? 'border-red-400 focus:ring-red-200 dark:focus:ring-red-800'
-                          : 'border-neutral-200 dark:border-neutral-700 focus:ring-neutral-200 dark:focus:ring-neutral-700',
+                          ? 'border-bd-danger focus:ring-bd-danger/30 dark:focus:ring-bd-danger-dark/30'
+                          : 'border-bd-base dark:border-bd-base-dark focus:ring-bd-base dark:focus:ring-bd-base-dark',
                       ].join(' ')}
                     />
 
@@ -321,7 +321,7 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                     {colorRows.length > 1 && (
                       <button
                         onClick={() => removeRow(row.id)}
-                        className="text-neutral-300 dark:text-neutral-600 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
+                        className="text-fg-placeholder dark:text-fg-muted-dark hover:text-fg-muted dark:hover:text-fg-subtle-dark transition-colors"
                         aria-label="Remove color"
                       >
                         <IconTrash size={15} />
@@ -333,7 +333,7 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                 {colorRows.length < 3 && (
                   <button
                     onClick={addRow}
-                    className="flex items-center gap-1.5 text-xs text-neutral-400 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors mt-0.5 self-start"
+                    className="flex items-center gap-1.5 text-xs text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark transition-colors mt-0.5 self-start"
                   >
                     <IconPlus size={13} />
                     Add color
@@ -344,14 +344,14 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   onClick={goBack}
-                  className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-bd-base dark:border-bd-base-dark text-sm text-fg-subtle dark:text-fg-subtle-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleBrandedNext}
                   disabled={brandHexes.length === 0}
-                  className="px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-700 dark:hover:bg-neutral-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="px-4 py-2 rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Next
                 </button>
@@ -364,15 +364,15 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
             <div className="flex flex-col gap-5">
               {/* Brand color recap */}
               <div>
-                <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">Your brand colors</p>
+                <p className="text-xs font-medium text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide mb-2">Your brand colors</p>
                 <div className="flex gap-2 flex-wrap">
                   {brandHexes.map((hex, i) => (
-                    <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800">
+                    <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-bd-base dark:border-bd-base-dark bg-surface-neutral-subtle-hover dark:bg-surface-neutral-subtle-hover-dark">
                       <div
                         className="w-4 h-4 rounded border border-black/10 dark:border-white/10 flex-shrink-0"
                         style={{ backgroundColor: hex }}
                       />
-                      <span className="text-xs font-mono text-neutral-600 dark:text-neutral-400">{hex}</span>
+                      <span className="text-xs font-mono text-fg-muted dark:text-fg-muted-dark">{hex}</span>
                     </div>
                   ))}
                 </div>
@@ -381,8 +381,8 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
               {/* Harmony options */}
               {primaryHex && (
                 <div>
-                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide mb-2">Add harmonies</p>
-                  <p className="text-xs text-neutral-400 dark:text-neutral-500 mb-3">Based on your primary color. Skip if you want only your brand colors.</p>
+                  <p className="text-xs font-medium text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide mb-2">Add harmonies</p>
+                  <p className="text-xs text-fg-placeholder dark:text-fg-placeholder-dark mb-3">Based on your primary color. Skip if you want only your brand colors.</p>
                   <div className="flex flex-col gap-2">
                     {HARMONY_DEFS.map((def) => {
                       const harmonyHexes = def.hueShifts.map((shift) => shiftHue(primaryHex, shift))
@@ -394,8 +394,8 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                           className={[
                             'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors',
                             isSelected
-                              ? 'border-neutral-900 dark:border-neutral-200 bg-neutral-50 dark:bg-neutral-800'
-                              : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600',
+                              ? 'border-bd-primary dark:border-bd-primary-dark bg-surface-neutral-subtle-hover dark:bg-surface-neutral-subtle-hover-dark'
+                              : 'border-bd-base dark:border-bd-base-dark hover:border-bd-hover dark:hover:border-bd-hover-dark',
                           ].join(' ')}
                         >
                           {/* Checkbox */}
@@ -403,14 +403,14 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                             className={[
                               'w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border transition-colors',
                               isSelected
-                                ? 'bg-neutral-900 dark:bg-white border-neutral-900 dark:border-white'
-                                : 'border-neutral-300 dark:border-neutral-600',
+                                ? 'bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark border-bd-primary dark:border-bd-primary-dark'
+                                : 'border-bd-hover dark:border-bd-hover-dark',
                             ].join(' ')}
                           >
                             {isSelected && (
                               <IconCheck
                                 size={10}
-                                className="text-white dark:text-neutral-900"
+                                className="text-fg-inverted dark:text-fg-inverted-dark"
                                 strokeWidth={3}
                               />
                             )}
@@ -418,8 +418,8 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
 
                           {/* Label + description */}
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium text-neutral-900 dark:text-white leading-tight">{def.label}</div>
-                            <div className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{def.description}</div>
+                            <div className="text-sm font-medium text-fg-base dark:text-fg-base-dark leading-tight">{def.label}</div>
+                            <div className="text-xs text-fg-placeholder dark:text-fg-placeholder-dark mt-0.5">{def.description}</div>
                           </div>
 
                           {/* Color swatches */}
@@ -447,13 +447,13 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   onClick={goBack}
-                  className="px-4 py-2 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-bd-base dark:border-bd-base-dark text-sm text-fg-subtle dark:text-fg-subtle-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleCreateBranded}
-                  className="px-4 py-2 rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
                 >
                   Create project
                 </button>

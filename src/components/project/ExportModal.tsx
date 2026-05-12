@@ -83,7 +83,6 @@ export function ExportModal({ scope, palette, onClose }: Props) {
     }
     if (copyFormat === 'svg') {
       if (scope === 'palette' && palette) return buildSvgRamp(palette)
-      // Project: stack all palettes vertically in one SVG
       return buildProjectSvgStack(project.palettes)
     }
     return ''
@@ -104,14 +103,14 @@ export function ExportModal({ scope, palette, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-xl w-full max-w-sm mx-4 flex flex-col gap-0 overflow-hidden">
+      <div className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-sm mx-4 flex flex-col gap-0 overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
-          <h2 className="text-sm font-semibold text-neutral-900 dark:text-white truncate pr-4">{title}</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-bd-base dark:border-bd-base-dark">
+          <h2 className="text-sm font-semibold text-fg-base dark:text-fg-base-dark truncate pr-4">{title}</h2>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors flex-shrink-0"
+            className="text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark transition-colors flex-shrink-0"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -128,8 +127,8 @@ export function ExportModal({ scope, palette, onClose }: Props) {
               className={[
                 'flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize',
                 tab === t
-                  ? 'bg-neutral-900 dark:bg-white text-white dark:text-neutral-900'
-                  : 'text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800',
+                  ? 'bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark'
+                  : 'text-fg-muted dark:text-fg-muted-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark',
               ].join(' ')}
             >
               {t}
@@ -164,7 +163,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
           <button
             onClick={tab === 'export' ? handleExport : handleCopy}
             disabled={loading}
-            className="mt-2 w-full rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium py-2 hover:bg-neutral-700 dark:hover:bg-neutral-200 disabled:opacity-50 transition-colors"
+            className="mt-2 w-full rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium py-2 hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark disabled:opacity-50 transition-colors"
           >
             {tab === 'export'
               ? (loading ? 'Exporting…' : 'Download')
@@ -193,8 +192,8 @@ function FormatOption({
       className={[
         'flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors',
         selected
-          ? 'border-neutral-900 dark:border-white bg-neutral-50 dark:bg-neutral-800'
-          : 'border-neutral-200 dark:border-neutral-700 hover:border-neutral-300 dark:hover:border-neutral-600',
+          ? 'border-bd-primary dark:border-bd-primary-dark bg-surface-neutral-subtle-hover dark:bg-surface-neutral-subtle-hover-dark'
+          : 'border-bd-base dark:border-bd-base-dark hover:border-bd-hover dark:hover:border-bd-hover-dark',
       ].join(' ')}
     >
       <input
@@ -202,11 +201,11 @@ function FormatOption({
         name="format"
         checked={selected}
         onChange={onSelect}
-        className="mt-0.5 flex-shrink-0 accent-neutral-900 dark:accent-white"
+        className="mt-0.5 flex-shrink-0 accent-bd-primary dark:accent-bd-primary-dark"
       />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100 leading-tight">{label}</p>
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-0.5">{desc}</p>
+        <p className="text-sm font-medium text-fg-base dark:text-fg-base-dark leading-tight">{label}</p>
+        <p className="text-xs text-fg-placeholder dark:text-fg-placeholder-dark mt-0.5">{desc}</p>
       </div>
     </label>
   )
@@ -223,10 +222,7 @@ function buildProjectSvgStack(palettes: Palette[]): string {
   const groups: string[] = []
 
   for (const p of palettes) {
-    const stepCount = p.modes.light.length
-    const w = TILE_W * stepCount
     const svg = buildSvgRamp(p)
-    // Extract inner content from the palette SVG and offset it
     const inner = svg.replace(/<svg[^>]*>/, '').replace('</svg>', '')
     groups.push(`<g transform="translate(0, ${y})">${inner}</g>`)
     y += TILE_H + GAP

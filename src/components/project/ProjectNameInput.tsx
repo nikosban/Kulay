@@ -31,7 +31,7 @@ export function ProjectNameInput() {
   return editing ? (
     <input
       autoFocus
-      className="text-lg font-semibold text-neutral-900 dark:text-white bg-transparent border-b border-neutral-300 dark:border-neutral-600 outline-none min-w-0 max-w-xs"
+      className="text-lg font-semibold text-fg-base dark:text-fg-base-dark bg-transparent border-b border-bd-hover dark:border-bd-hover-dark outline-none min-w-0 max-w-xs"
       value={value}
       maxLength={MAX_LENGTH}
       onChange={(e) => setValue(e.target.value)}
@@ -41,7 +41,7 @@ export function ProjectNameInput() {
   ) : (
     <button
       onClick={handleFocus}
-      className="text-lg font-semibold text-neutral-900 dark:text-white hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors text-left truncate max-w-xs"
+      className="text-lg font-semibold text-fg-base dark:text-fg-base-dark hover:text-fg-muted dark:hover:text-fg-subtle-dark transition-colors text-left truncate max-w-xs"
       title="Click to rename"
     >
       {name}

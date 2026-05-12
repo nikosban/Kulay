@@ -22,14 +22,14 @@ export function LibraryScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      <header className="flex items-center justify-between px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900">
-        <h1 className="text-xl font-semibold text-neutral-900 dark:text-white">Kulay</h1>
+    <div className="min-h-screen bg-surface-page dark:bg-surface-page-dark">
+      <header className="flex items-center justify-between px-6 py-5 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
+        <h1 className="text-xl font-semibold text-fg-base dark:text-fg-base-dark">Kulay</h1>
         <div className="flex items-center gap-2">
           <ThemeToggle isDark={isDark} onToggle={toggle} />
           <button
             onClick={() => setShowModal(true)}
-            className="rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium px-4 py-2 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors"
+            className="rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium px-4 py-2 hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
           >
             New Project
           </button>
@@ -39,10 +39,10 @@ export function LibraryScreen() {
       <main className="p-6">
         {libraryProjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-neutral-400 dark:text-neutral-500 text-sm mb-4">No projects yet.</p>
+            <p className="text-fg-placeholder dark:text-fg-placeholder-dark text-sm mb-4">No projects yet.</p>
             <button
               onClick={() => setShowModal(true)}
-              className="rounded-lg bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium px-4 py-2 hover:bg-neutral-700 dark:hover:bg-neutral-200 transition-colors"
+              className="rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark text-sm font-medium px-4 py-2 hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
             >
               Create your first project
             </button>

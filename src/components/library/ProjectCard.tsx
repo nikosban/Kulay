@@ -45,7 +45,7 @@ export function ProjectCard({ project, onOpen, onRename, onRemove }: Props) {
     : `${project.palettes.length} palette${project.palettes.length === 1 ? '' : 's'}`
 
   return (
-    <div className="group relative w-full rounded-xl border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 hover:border-neutral-400 dark:hover:border-neutral-500 hover:shadow-sm transition-all">
+    <div className="group relative w-full rounded-xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:shadow-sm transition-all">
       <button
         onClick={() => !editing && onOpen(project.id)}
         className="w-full text-left p-5 pr-20"
@@ -58,12 +58,12 @@ export function ProjectCard({ project, onOpen, onRename, onRemove }: Props) {
             onBlur={commitRename}
             onKeyDown={handleKeyDown}
             onClick={(e) => e.stopPropagation()}
-            className="w-full font-semibold text-neutral-900 dark:text-white bg-transparent border-b border-neutral-400 dark:border-neutral-500 outline-none"
+            className="w-full font-semibold text-fg-base dark:text-fg-base-dark bg-transparent border-b border-bd-strong dark:border-bd-strong-dark outline-none"
           />
         ) : (
-          <p className="font-semibold text-neutral-900 dark:text-white truncate">{project.name}</p>
+          <p className="font-semibold text-fg-base dark:text-fg-base-dark truncate">{project.name}</p>
         )}
-        <p className="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+        <p className="text-xs text-fg-placeholder dark:text-fg-placeholder-dark mt-1">
           {paletteMeta}{' · '}{formatDate(project.updatedAt)}
         </p>
       </button>
