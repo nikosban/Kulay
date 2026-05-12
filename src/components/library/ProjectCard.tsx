@@ -46,7 +46,7 @@ export function ProjectCard({ project, onOpen, onRename, onRemove }: Props) {
     : `${project.palettes.length} palette${project.palettes.length === 1 ? '' : 's'}`
 
   return (
-    <div className="group relative w-full max-w-xs rounded-xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:shadow-sm transition-all overflow-hidden">
+    <div className="group relative w-full rounded-xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:shadow-sm transition-all overflow-hidden">
 
       {/* Color preview strip */}
       {project.palettes.length > 0 && (
