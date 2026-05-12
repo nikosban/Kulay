@@ -279,7 +279,7 @@ export function normalizeTailwindLabels(
   const stepCount = TAILWIND_LABELS.length - 1 // 10 → generates 11 steps
 
   function normalizeMode(mode: 'light' | 'dark'): PaletteStep[] {
-    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange, opts)
+    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange)
     return freshSteps.map((step, i) => ({ ...step, label: TAILWIND_LABELS[i]! }))
   }
 

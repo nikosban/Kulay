@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
-import { toast } from 'sonner'
 import type { Palette, PaletteStep } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, getActiveSteps } from '../../types/project'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -11,7 +10,6 @@ interface Props {
   palette: Palette
   step: PaletteStep
   onClose: () => void
-  onDeletePalette: () => void
 }
 
 function hexToHsl(hex: string): [number, number, number] {
@@ -118,15 +116,13 @@ function EditableMultiValueRow({
 }
 
 
-export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Props) {
+export function StepDetailPanel({ palette, step, onClose }: Props) {
   const updateStepHex = useProjectStore((s) => s.updateStepHex)
   const lockStep = useProjectStore((s) => s.lockStep)
   const unlockStep = useProjectStore((s) => s.unlockStep)
   const deleteStep = useProjectStore((s) => s.deleteStep)
   const recalibratePaletteToStep = useProjectStore((s) => s.recalibratePaletteToStep)
   const updatePaletteLightnessRange = useProjectStore((s) => s.updatePaletteLightnessRange)
-  const deletePalette = useProjectStore((s) => s.deletePalette)
-  const undoDeletePalette = useProjectStore((s) => s.undoDeletePalette)
   const renamePalette = useProjectStore((s) => s.renamePalette)
   const projectLightnessRange = useProjectStore((s) => s.activeProject?.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE)
   const backgrounds = useProjectStore((s) => s.activeProject?.backgrounds ?? { light: '#FFFFFF', dark: '#000000' })
@@ -152,15 +148,6 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
     setNameInput(palette.name)
   }
 
-  function handleDeletePalette() {
-    const name = palette.name
-    deletePalette(palette.id)
-    onDeletePalette()
-    const toastId = toast(`${name} deleted.`, {
-      duration: 10_000,
-      action: { label: 'Undo', onClick: () => { undoDeletePalette(); toast.dismiss(toastId) } },
-    })
-  }
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return

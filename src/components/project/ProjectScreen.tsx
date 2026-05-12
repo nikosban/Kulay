@@ -466,7 +466,6 @@ export function ProjectScreen() {
           palette={openPalette}
           step={openStep}
           onClose={() => setOpenPanelKey(null)}
-          onDeletePalette={() => handleSelectPalette(null)}
         />
       )}
 
