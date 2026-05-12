@@ -3,16 +3,13 @@
 @tailwind utilities;
 
 /* ── Theme base — ensures full-viewport bg matches the active theme ── */
-/* html is the .dark element itself so it can't use :is(.dark *) — set it directly */
+/* Using raw hex values: @apply can't reference custom colors in @layer base (JIT limitation) */
 @layer base {
-  html {
-    @apply bg-surface-page;
+  html, body {
+    background-color: #F9FAFB; /* surface-page */
   }
-  html.dark {
+  html.dark, .dark body {
     background-color: #0A0A0A; /* surface-page-dark */
-  }
-  body {
-    @apply bg-surface-page dark:bg-surface-page-dark;
   }
 }
 
