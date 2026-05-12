@@ -6,7 +6,7 @@ import { saveProject, loadProject, deleteProject, listProjectIds, CorruptedProje
 import { sortPalettes } from '../lib/paletteSort'
 import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette } from '../lib/generatePalette'
 import { adjustStepForWcagTarget } from '../lib/wcagTarget'
-import { hexToOklch, clampToGamut, oklchToHex } from '../lib/color'
+import { hexToOklch } from '../lib/color'
 import { inferPaletteName } from '../lib/paletteName'
 import { contrastRatio } from '../lib/wcag'
 
