@@ -381,14 +381,16 @@ export function ProjectScreen() {
 
         {palettes.length > 0 && backgrounds && (
           <>
-            <CompactBgInput
-              value={isDark ? backgrounds.dark : backgrounds.light}
-              label={isDark ? "Dark bg" : "Light bg"}
-              onCommit={(hex) => updateBackgrounds(isDark
-                ? { ...backgrounds, dark: hex }
-                : { ...backgrounds, light: hex }
-              )}
-            />
+            <div className="flex items-center rounded-lg border border-bd-base dark:border-bd-base-dark h-7 px-2">
+              <CompactBgInput
+                value={isDark ? backgrounds.dark : backgrounds.light}
+                label={isDark ? "Dark bg" : "Light bg"}
+                onCommit={(hex) => updateBackgrounds(isDark
+                  ? { ...backgrounds, dark: hex }
+                  : { ...backgrounds, light: hex }
+                )}
+              />
+            </div>
             <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
           </>
         )}
@@ -430,7 +432,7 @@ export function ProjectScreen() {
             <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
             <button
               onClick={() => setShowExport(true)}
-              className="text-sm text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark px-2 py-1 rounded-lg hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
+              className="text-sm font-medium px-3 py-1 rounded-lg bg-surface-neutral-strong-rest dark:bg-surface-neutral-strong-rest-dark text-fg-inverted dark:text-fg-inverted-dark hover:bg-surface-neutral-strong-hover dark:hover:bg-surface-neutral-strong-hover-dark transition-colors"
             >
               Export
             </button>
