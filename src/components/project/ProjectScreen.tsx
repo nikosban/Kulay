@@ -395,19 +395,23 @@ export function ProjectScreen() {
 
         {palettes.length > 0 && (
           <>
-            <button
-              onClick={() => updateProjectStepCount(stepCount - 1)}
-              disabled={stepCount <= MIN_STEPS}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
-            >−</button>
-            <span className="text-xs text-fg-muted dark:text-fg-muted-dark w-14 text-center tabular-nums">
-              {swatchCount} steps
-            </span>
-            <button
-              onClick={() => updateProjectStepCount(stepCount + 1)}
-              disabled={stepCount >= MAX_STEPS}
-              className="w-7 h-7 flex items-center justify-center rounded-lg text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
-            >+</button>
+            <div className="flex items-center rounded-lg border border-bd-base dark:border-bd-base-dark overflow-hidden">
+              <button
+                onClick={() => updateProjectStepCount(stepCount - 1)}
+                disabled={stepCount <= MIN_STEPS}
+                className="w-7 h-7 flex items-center justify-center text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+              >−</button>
+              <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark flex-shrink-0" />
+              <span className="text-xs text-fg-muted dark:text-fg-muted-dark w-9 text-center tabular-nums select-none">
+                {swatchCount}
+              </span>
+              <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark flex-shrink-0" />
+              <button
+                onClick={() => updateProjectStepCount(stepCount + 1)}
+                disabled={stepCount >= MAX_STEPS}
+                className="w-7 h-7 flex items-center justify-center text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+              >+</button>
+            </div>
             <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
           </>
         )}
