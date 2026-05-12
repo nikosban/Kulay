@@ -7,7 +7,6 @@ import { DEFAULT_LABEL_SCALE } from "../../types/project";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAutoSave } from "../../hooks/useAutoSave";
 import { useBeforeUnload } from "../../hooks/useBeforeUnload";
-import { SavedTimestamp } from "../ui/SavedTimestamp";
 import { ConfirmLeaveModal } from "../ui/ConfirmLeaveModal";
 import { StepDetailPanel } from "./StepDetailPanel";
 import { ExportModal } from "./ExportModal";
@@ -259,9 +258,8 @@ export function ProjectScreen() {
       {/* ── Main area ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* Header */}
+        {/* Header — sits between left sidebar and right panel */}
         <header className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
-          <SavedTimestamp />
           <div className="flex-1" />
 
           {palettes.length > 0 && backgrounds && (
@@ -314,7 +312,7 @@ export function ProjectScreen() {
           )}
         </header>
 
-        {/* Content + optional step detail panel */}
+        {/* Content */}
         <div className="flex flex-1 overflow-hidden">
 
           {/* ── Detail view: selected palette steps fill the content area ── */}
@@ -419,17 +417,18 @@ export function ProjectScreen() {
             </main>
           )}
 
-          {/* Step detail panel */}
-          {openStep && openPalette && (
-            <StepDetailPanel
-              palette={openPalette}
-              step={openStep}
-              onClose={() => setOpenPanelKey(null)}
-              onDeletePalette={() => handleSelectPalette(null)}
-            />
-          )}
         </div>
       </div>
+
+      {/* ── Right panel (step detail) — sibling column, same level as left sidebar ── */}
+      {openStep && openPalette && (
+        <StepDetailPanel
+          palette={openPalette}
+          step={openStep}
+          onClose={() => setOpenPanelKey(null)}
+          onDeletePalette={() => handleSelectPalette(null)}
+        />
+      )}
 
       {showLeaveModal && (
         <ConfirmLeaveModal
