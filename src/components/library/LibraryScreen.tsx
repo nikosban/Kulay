@@ -3,6 +3,7 @@ import { useProjectStore } from '../../store/useProjectStore'
 import { useTheme } from '../../contexts/ThemeContext'
 import { ProjectCard } from './ProjectCard'
 import { ThemeToggle } from '../ui/ThemeToggle'
+import { KulayLogo } from '../ui/KulayLogo'
 import { NewProjectModal } from './NewProjectModal'
 import type { Palette } from '../../types/project'
 
@@ -24,7 +25,10 @@ export function LibraryScreen() {
   return (
     <div className="min-h-screen bg-surface-page dark:bg-surface-page-dark">
       <header className="flex items-center justify-between px-6 py-5 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
-        <h1 className="text-xl font-semibold text-fg-base dark:text-fg-base-dark">Kulay</h1>
+        <div className="flex items-center gap-2">
+          <KulayLogo size={20} className="text-fg-base dark:text-fg-base-dark" />
+          <h1 className="text-xl font-semibold text-fg-base dark:text-fg-base-dark">Kulay</h1>
+        </div>
         <div className="flex items-center gap-2">
           <ThemeToggle isDark={isDark} onToggle={toggle} />
           <button
