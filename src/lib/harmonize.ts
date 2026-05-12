@@ -1,3 +1,5 @@
+import { clampToGamut } from './color'
+
 function hueChromaMultiplier(H: number, stepFraction: number): number {
   // stepFraction: 0 = lightest, 1 = darkest (lightness axis, not step index)
   const lightness = 1 - stepFraction
@@ -31,17 +33,23 @@ function hueChromaMultiplier(H: number, stepFraction: number): number {
 
 function hueShift(H: number, stepFraction: number): number {
   const lightness = 1 - stepFraction
-  // Reds: lighter steps drift toward orange — pull back toward red/magenta
+  const darkness = stepFraction
+
+  // Reds: lighter steps drift toward orange (pull back), darker steps drift toward maroon (pull back)
   if ((H >= 0 && H <= 25) || (H >= 345 && H <= 360)) {
-    return -3 * Math.pow(lightness, 2)
+    return -3 * Math.pow(lightness, 2) + 2 * Math.pow(darkness, 2)
   }
-  // Blues: lighter steps drift toward cyan — pull back toward blue/indigo
+  // Blues: lighter steps drift toward cyan (pull back), darker steps drift toward indigo (pull toward blue)
   if (H >= 210 && H <= 260) {
-    return 4 * Math.pow(lightness, 2)
+    return 4 * Math.pow(lightness, 2) + 3 * Math.pow(darkness, 2)
   }
   // Purples: lighter steps drift toward blue — push toward red/pink
   if (H >= 291 && H <= 320) {
     return 5 * Math.pow(lightness, 2)
+  }
+  // Greens: darker steps drift toward teal — pull back toward green
+  if (H >= 86 && H <= 150) {
+    return -2 * Math.pow(darkness, 2)
   }
   return 0
 }
@@ -64,6 +72,16 @@ function darkChromaBoost(H: number): number {
   // Magentas / pinks
   if (H >= 321 && H <= 344) return 1.28
   return 1.25
+}
+
+// Find the highest L where this hue can sustain ~0.18 chroma, clamped to [0.82, 0.92].
+// Hues with wide gamut at high L (amber) return ~0.92; narrow-gamut hues (indigo) return lower.
+function maxDarkL(H: number): number {
+  for (let L = 0.92; L >= 0.82; L -= 0.01) {
+    const [, cC] = clampToGamut(L, 0.18, H)
+    if (cC >= 0.18 * 0.95) return L
+  }
+  return 0.82
 }
 
 // Chroma envelope anchored at base step, tapering toward extremes.
@@ -92,9 +110,9 @@ export function harmonize(
   lRange: { lightest: number; darkest: number } = { lightest: 0.96, darkest: 0.12 },
 ): HarmonizedStep[] {
   // Light: step 0 = lightest, step n-1 = darkest
-  // Dark:  step 0 = darkest,  step n-1 = lightest (fixed at 0.85 for dark-bg legibility)
+  // Dark:  step 0 = darkest,  step n-1 = lightest (ceiling adaptive per hue for gamut fit)
   const L_START = mode === 'dark' ? lRange.darkest : lRange.lightest
-  const L_END   = mode === 'dark' ? 0.85            : lRange.darkest
+  const L_END   = mode === 'dark' ? maxDarkL(inputH) : lRange.darkest
   // Boost chroma for dark backgrounds — per-hue so warm colors get more, blues/cyans less
   const chromaBoost = mode === 'dark' ? darkChromaBoost(inputH) : 1.0
   const n = stepCount
@@ -118,8 +136,18 @@ export function harmonize(
     const t = i / (n - 1)
 
     if (isNeutral) {
-      return { L, C: inputC, H: inputH }
+      // Derive a faint temperature tint from the input hue, fading at extremes
+      let tintC = 0
+      if ((inputH >= 0 && inputH <= 60) || (inputH >= 320 && inputH <= 360)) {
+        tintC = 0.012 // warm tint
+      } else if (inputH >= 180 && inputH <= 280) {
+        tintC = 0.010 // cool tint
+      }
+      return { L, C: tintC * envelope(t, tBase), H: inputH }
     }
+
+    // Use exact input L at the base step so the envelope math stays consistent
+    const stepL = i === baseIndex ? inputL : L
 
     // stepFraction for hue multiplier: 0 = lightest, 1 = darkest (independent of mode)
     const stepFraction = mode === 'dark' ? 1 - t : t
@@ -130,7 +158,7 @@ export function harmonize(
     const C = Math.max(0, raw * scale)
     const H = inputH + hueShift(inputH, stepFraction)
 
-    return { L, C, H }
+    return { L: stepL, C, H }
   })
 
   return steps
