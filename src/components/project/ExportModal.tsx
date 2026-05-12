@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useProjectStore } from '../../store/useProjectStore'
 import type { Palette } from '../../types/project'
 import { exportProjectKulay, exportPaletteKulay, projectKulayJson, paletteKulayJson } from '../../lib/export/kulayJson'
@@ -41,6 +42,8 @@ export function ExportModal({ scope, palette, onClose }: Props) {
   const [copyFormat, setCopyFormat] = useState<CopyFormat>('json')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, true)
 
   if (!project) return null
 
@@ -103,13 +106,20 @@ export function ExportModal({ scope, palette, onClose }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-sm mx-4 flex flex-col gap-0 overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-modal-title"
+        className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-sm mx-4 flex flex-col gap-0 overflow-hidden"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-bd-base dark:border-bd-base-dark">
-          <h2 className="text-sm font-semibold text-fg-base dark:text-fg-base-dark truncate pr-4">{title}</h2>
+          <h2 id="export-modal-title" className="text-sm font-semibold text-fg-base dark:text-fg-base-dark truncate pr-4">{title}</h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark transition-colors flex-shrink-0"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

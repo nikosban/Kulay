@@ -201,6 +201,8 @@ export function ProjectScreen() {
   const [selectedPaletteId, setSelectedPaletteId] = useState<string | null>(null);
 
   const paletteRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const stepDivRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const [focusedStepLabel, setFocusedStepLabel] = useState<number | null>(null);
 
   function handleOpenStep(paletteId: string, stepLabel: number | null) {
     setOpenPanelKey(stepLabel === null ? null : { paletteId, stepLabel });
@@ -264,17 +266,47 @@ export function ProjectScreen() {
           {/* ── Detail view: selected palette steps fill the content area ── */}
           {selectedPalette ? (
             <div className="flex flex-row flex-1 overflow-hidden">
-              {getActiveSteps(selectedPalette).map((step) => {
+              {getActiveSteps(selectedPalette).map((step, idx, steps) => {
                 const lum = relativeLuminance(step.hex);
                 const textColor = lum > 0.18 ? "#111111" : "#ffffff";
                 const isOpen = openPanelKey?.paletteId === selectedPalette.id && openPanelKey.stepLabel === step.label;
+                const isFocused = focusedStepLabel === step.label;
                 return (
                   <div
                     key={step.label}
-                    className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative"
+                    ref={(el) => { if (el) stepDivRefs.current.set(step.label, el); else stepDivRefs.current.delete(step.label); }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`Step ${step.label}`}
+                    aria-pressed={isOpen}
+                    className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative focus:outline-none"
                     style={{ backgroundColor: step.hex }}
                     onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
+                    onFocus={() => setFocusedStepLabel(step.label)}
+                    onBlur={() => setFocusedStepLabel(null)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'ArrowRight') {
+                        e.preventDefault();
+                        const nextLabel = steps[(idx + 1) % steps.length]!.label;
+                        stepDivRefs.current.get(nextLabel)?.focus();
+                        handleOpenStep(selectedPalette.id, nextLabel);
+                      } else if (e.key === 'ArrowLeft') {
+                        e.preventDefault();
+                        const prevLabel = steps[(idx - 1 + steps.length) % steps.length]!.label;
+                        stepDivRefs.current.get(prevLabel)?.focus();
+                        handleOpenStep(selectedPalette.id, prevLabel);
+                      } else if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleOpenStep(selectedPalette.id, isOpen ? null : step.label);
+                      }
+                    }}
                   >
+                    {isFocused && (
+                      <div
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ outline: `2px solid ${textColor}`, outlineOffset: '-2px', opacity: 0.6 }}
+                      />
+                    )}
                     {isOpen && (
                       <div
                         className="absolute inset-x-0 top-0 h-[3px]"

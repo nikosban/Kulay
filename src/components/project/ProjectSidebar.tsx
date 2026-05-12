@@ -159,6 +159,7 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             onClick={openAdder}
             disabled={atLimit}
             title={atLimit ? `Maximum of ${PALETTE_LIMIT} palettes reached` : 'Add color'}
+            aria-label="Add color"
             className="w-6 h-6 flex items-center justify-center rounded text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <IconPlus size={13} stroke={2} />

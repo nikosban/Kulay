@@ -20,10 +20,12 @@ const MoonIcon = () => (
 )
 
 export function ThemeToggle({ isDark, onToggle, title }: Props) {
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode'
   return (
     <button
       onClick={onToggle}
-      title={title ?? (isDark ? 'Switch to light mode' : 'Switch to dark mode')}
+      title={title ?? label}
+      aria-label={label}
       className="w-8 h-8 flex items-center justify-center rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}

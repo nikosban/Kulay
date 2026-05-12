@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import type { Palette } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_LABEL_SCALE } from '../../types/project'
 import { generatePalette, relabelPalette } from '../../lib/generatePalette'
@@ -111,6 +112,8 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
   const [step, setStep] = useState<ModalStep>('choose')
   const [colorRows, setColorRows] = useState<ColorRow[]>([makeRow()])
   const [selectedHarmonies, setSelectedHarmonies] = useState<Set<string>>(new Set())
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(dialogRef, true)
 
   const brandHexes = colorRows.map((r) => r.hex).filter(Boolean) as string[]
   const primaryHex = brandHexes[0] ?? null
@@ -205,7 +208,13 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="new-project-title"
+        className="bg-surface-base dark:bg-surface-base-dark rounded-xl shadow-xl w-full max-w-lg mx-4 overflow-hidden"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-bd-base dark:border-bd-base-dark">
@@ -219,7 +228,7 @@ export function NewProjectModal({ onClose, onCreate }: Props) {
                 <IconArrowLeft size={17} />
               </button>
             )}
-            <h2 className="text-sm font-semibold text-fg-base dark:text-fg-base-dark">{headerTitle}</h2>
+            <h2 id="new-project-title" className="text-sm font-semibold text-fg-base dark:text-fg-base-dark">{headerTitle}</h2>
           </div>
           <button
             onClick={onClose}

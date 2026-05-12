@@ -7,6 +7,7 @@ interface Props {
   onClick?: (e: MouseEvent<HTMLButtonElement>) => void
   variant?: Variant
   title?: string
+  'aria-label'?: string
   disabled?: boolean
 }
 
@@ -15,11 +16,12 @@ const variantClass: Record<Variant, string> = {
   danger:  'text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-danger dark:hover:text-fg-danger-dark border-bd-base dark:border-bd-base-dark',
 }
 
-export function ButtonSmall({ children, onClick, variant = 'default', title, disabled }: Props) {
+export function ButtonSmall({ children, onClick, variant = 'default', title, 'aria-label': ariaLabel, disabled }: Props) {
   return (
     <button
       onClick={onClick}
       title={title}
+      aria-label={ariaLabel ?? title}
       disabled={disabled}
       className={`h-8 px-2 min-w-8 inline-flex items-center justify-center gap-1.5 rounded-md border bg-surface-base dark:bg-surface-base-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${variantClass[variant]}`}
     >

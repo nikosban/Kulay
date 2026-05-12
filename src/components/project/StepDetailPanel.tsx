@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { IconTrash, IconX } from '@tabler/icons-react'
 import { toast } from 'sonner'
 import type { Palette, PaletteStep } from '../../types/project'
@@ -159,6 +159,17 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
       action: { label: 'Undo', onClick: () => { undoDeletePalette(); toast.dismiss(toastId) } },
     })
   }
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const active = document.activeElement
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return
+      onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [onClose])
+
   const allSteps = getActiveSteps(palette)
   const canDelete = allSteps.length > 2
 
@@ -224,6 +235,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
         <button
           onClick={onClose}
           title="Close"
+          aria-label="Close"
           className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors flex-shrink-0"
         >
           <IconX size={14} stroke={1.75} />
@@ -236,6 +248,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
           <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
           <input
             type="range" min={75} max={99} step={1}
+            aria-label="Lightest"
             value={Math.round(effectiveRange.lightest * 100)}
             onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: Number(e.target.value) / 100 })}
             className="flex-1 accent-neutral-700 dark:accent-neutral-300"
@@ -248,6 +261,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
           <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Darkest</span>
           <input
             type="range" min={5} max={30} step={1}
+            aria-label="Darkest"
             value={Math.round(effectiveRange.darkest * 100)}
             onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: Number(e.target.value) / 100 })}
             className="flex-1 accent-neutral-700 dark:accent-neutral-300"
@@ -267,6 +281,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
             {step.isBase && <span className="text-[9px] text-fg-placeholder dark:text-fg-placeholder-dark">Base</span>}
             <button
               onClick={onClose}
+              aria-label="Close"
               className="w-5 h-5 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors text-base leading-none"
             >
               ×
