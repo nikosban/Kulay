@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { IconTrash } from '@tabler/icons-react'
+import { IconTrash, IconX } from '@tabler/icons-react'
 import { toast } from 'sonner'
 import type { Palette, PaletteStep } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, getActiveSteps } from '../../types/project'
@@ -222,11 +222,11 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
           </button>
         )}
         <button
-          onClick={handleDeletePalette}
-          title="Delete color scale"
-          className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark transition-colors flex-shrink-0"
+          onClick={onClose}
+          title="Close"
+          className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors flex-shrink-0"
         >
-          <IconTrash size={14} stroke={1.75} />
+          <IconX size={14} stroke={1.75} />
         </button>
       </div>
 
