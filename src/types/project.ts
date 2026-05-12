@@ -17,7 +17,9 @@ export interface Project {
     dark: string
   }
   lightnessRange: LightnessRange
-  labelScale?: LabelScale   // optional for backward compat; defaults to '0-1000'
+  labelScale?: LabelScale
+  envelopeExponent?: number               // 0.4–1.4, default 0.75; controls chroma envelope shape
+  lightnessDistribution?: 'linear' | 'perceptual'  // default 'linear'
   palettes: Palette[]
   createdAt: number
   updatedAt: number

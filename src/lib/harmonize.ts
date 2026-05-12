@@ -101,6 +101,11 @@ export interface HarmonizedStep {
   H: number
 }
 
+export interface HarmonizeOpts {
+  envelopeExponent?: number
+  lightnessDistribution?: 'linear' | 'perceptual'
+}
+
 export function harmonize(
   inputL: number,
   inputC: number,
@@ -108,7 +113,10 @@ export function harmonize(
   stepCount: number,
   mode: 'light' | 'dark' = 'light',
   lRange: { lightest: number; darkest: number } = { lightest: 0.96, darkest: 0.12 },
+  opts: HarmonizeOpts = {},
 ): HarmonizedStep[] {
+  const exponent = opts.envelopeExponent ?? 0.75
+
   // Light: step 0 = lightest, step n-1 = darkest
   // Dark:  step 0 = darkest,  step n-1 = lightest (ceiling adaptive per hue for gamut fit)
   const L_START = mode === 'dark' ? lRange.darkest : lRange.lightest
@@ -117,7 +125,13 @@ export function harmonize(
   const chromaBoost = mode === 'dark' ? darkChromaBoost(inputH) : 1.0
   const n = stepCount
 
-  const lightnesses = Array.from({ length: n }, (_, i) => L_START + (i / (n - 1)) * (L_END - L_START))
+  const lightnesses = Array.from({ length: n }, (_, i) => {
+    const tRaw = i / (n - 1)
+    const t = opts.lightnessDistribution === 'perceptual'
+      ? (tRaw < 0.5 ? 2 * tRaw * tRaw : 1 - Math.pow(-2 * tRaw + 2, 2) / 2)
+      : tRaw
+    return L_START + t * (L_END - L_START)
+  })
 
   let baseIndex = 0
   let minDiff = Infinity
@@ -152,8 +166,8 @@ export function harmonize(
     // stepFraction for hue multiplier: 0 = lightest, 1 = darkest (independent of mode)
     const stepFraction = mode === 'dark' ? 1 - t : t
 
-    const raw = envelope(t, tBase) * hueChromaMultiplier(inputH, stepFraction)
-    const envelopeAtBase = envelope(tBase, tBase) * hueChromaMultiplier(inputH, mode === 'dark' ? 1 - tBase : tBase)
+    const raw = envelope(t, tBase, exponent) * hueChromaMultiplier(inputH, stepFraction)
+    const envelopeAtBase = envelope(tBase, tBase, exponent) * hueChromaMultiplier(inputH, mode === 'dark' ? 1 - tBase : tBase)
     const scale = envelopeAtBase > 0 ? (inputC * chromaBoost) / envelopeAtBase : 0
     const C = Math.max(0, raw * scale)
     const H = inputH + hueShift(inputH, stepFraction)

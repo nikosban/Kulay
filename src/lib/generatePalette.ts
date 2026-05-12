@@ -5,6 +5,11 @@ import { harmonize } from './harmonize'
 import { contrastRatio } from './wcag'
 import { inferPaletteName } from './paletteName'
 
+export interface GenOpts {
+  envelopeExponent?: number
+  lightnessDistribution?: 'linear' | 'perceptual'
+}
+
 export function computeStepLabels(n: number): number[] {
   return Array.from({ length: n }, (_, i) => Math.round((i * 1000) / (n - 1)))
 }
@@ -77,10 +82,11 @@ export function generateModeSteps(
   backgrounds: { light: string; dark: string },
   mode: 'light' | 'dark',
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
 ): PaletteStep[] {
   const n = stepColorCount(stepCount)
   const [inputL, inputC, inputH] = hexToOklch(inputHex)
-  const harmonizedSteps = harmonize(inputL, inputC, inputH, n, mode, lRange)
+  const harmonizedSteps = harmonize(inputL, inputC, inputH, n, mode, lRange, opts)
   const baseIndex = findBaseIndex(inputL, stepCount, mode, lRange)
   const stepLabels = computeStepLabels(n)
 
@@ -97,9 +103,10 @@ export function generatePalette(
   backgrounds: { light: string; dark: string },
   existingPalettes: Palette[],
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
 ): Palette {
   const [inputL, inputC, inputH] = hexToOklch(inputHex)
-  const lightSteps = generateModeSteps(inputHex, stepCount, backgrounds, 'light', lRange)
+  const lightSteps = generateModeSteps(inputHex, stepCount, backgrounds, 'light', lRange, opts)
   const name = inferPaletteName(inputH, inputC, inputL, existingPalettes)
 
   return {
@@ -115,9 +122,10 @@ export function generateDarkMode(
   palette: Palette,
   backgrounds: { light: string; dark: string },
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
 ): Palette {
   const stepCount = palette.modes.light.length - 1
-  const darkSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, 'dark', lRange)
+  const darkSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, 'dark', lRange, opts)
   return { ...palette, modes: { ...palette.modes, dark: darkSteps } }
 }
 
@@ -126,6 +134,7 @@ export function regeneratePalette(
   stepCount: number,
   backgrounds: { light: string; dark: string },
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
 ): Palette {
   const n = stepColorCount(stepCount)
   const newLabels = computeStepLabels(n)
@@ -160,7 +169,7 @@ export function regeneratePalette(
       }
     }
 
-    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange)
+    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange, opts)
     return freshSteps.map((freshStep, i) => {
       const locked = assignments.get(i)
       if (locked) {
@@ -180,9 +189,10 @@ export function autoUpdatePalette(
   palette: Palette,
   backgrounds: { light: string; dark: string },
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
 ): Palette {
   const stepCount = palette.modes.light.length - 1
-  return regeneratePalette(palette, stepCount, backgrounds, lRange)
+  return regeneratePalette(palette, stepCount, backgrounds, lRange, opts)
 }
 
 export function recalcContrast(
@@ -269,7 +279,7 @@ export function normalizeTailwindLabels(
   const stepCount = TAILWIND_LABELS.length - 1 // 10 → generates 11 steps
 
   function normalizeMode(mode: 'light' | 'dark'): PaletteStep[] {
-    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange)
+    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange, opts)
     return freshSteps.map((step, i) => ({ ...step, label: TAILWIND_LABELS[i]! }))
   }
 

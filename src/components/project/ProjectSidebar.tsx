@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { IconPlus, IconTrash } from '@tabler/icons-react'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -37,6 +37,10 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
   const undoDeletePalette = useProjectStore((s) => s.undoDeletePalette)
   const projectName = useProjectStore((s) => s.activeProject?.name ?? '')
   const updateProjectName = useProjectStore((s) => s.updateProjectName)
+  const updateEnvelopeExponent = useProjectStore((s) => s.updateEnvelopeExponent)
+  const updateLightnessDistribution = useProjectStore((s) => s.updateLightnessDistribution)
+  const envelopeExponent = useProjectStore((s) => s.activeProject?.envelopeExponent ?? 0.75)
+  const lightnessDistribution = useProjectStore((s) => s.activeProject?.lightnessDistribution ?? 'linear')
 
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
@@ -45,6 +49,14 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
   const [showAdder, setShowAdder] = useState(false)
   const [adderValue, setAdderValue] = useState('')
   const adderRef = useRef<HTMLInputElement>(null)
+
+  const [localExponent, setLocalExponent] = useState(envelopeExponent)
+  const exponentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isDraggingRef = useRef(false)
+
+  useEffect(() => {
+    if (!isDraggingRef.current) setLocalExponent(envelopeExponent)
+  }, [envelopeExponent])
 
   if (!activeProject) return null
 
@@ -64,6 +76,10 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
       activeProject!.backgrounds,
       activeProject!.palettes,
       activeProject!.lightnessRange,
+      {
+        envelopeExponent: activeProject!.envelopeExponent,
+        lightnessDistribution: activeProject!.lightnessDistribution,
+      },
     )
     addPalette(palette)
     onSelectPalette(palette.id)
@@ -98,6 +114,16 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
       duration: 10_000,
       action: { label: 'Undo', onClick: () => { undoDeletePalette(); toast.dismiss(toastId) } },
     })
+  }
+
+  function handleExponentChange(value: number) {
+    isDraggingRef.current = true
+    setLocalExponent(value)
+    if (exponentDebounceRef.current) clearTimeout(exponentDebounceRef.current)
+    exponentDebounceRef.current = setTimeout(() => {
+      isDraggingRef.current = false
+      updateEnvelopeExponent(value)
+    }, 150)
   }
 
   function startEditName() {
@@ -270,6 +296,45 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* ── Generation ── */}
+      <div className="flex flex-col gap-2.5 px-3 py-2.5 border-t border-bd-base dark:border-bd-base-dark flex-shrink-0">
+        <span className="text-[10px] font-medium text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide select-none">Generation</span>
+
+        {/* Envelope exponent slider */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Expressive</span>
+            <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark">{localExponent.toFixed(2)}</span>
+            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Even</span>
+          </div>
+          <input
+            type="range"
+            min={40} max={140} step={5}
+            value={Math.round(localExponent * 100)}
+            onChange={(e) => handleExponentChange(Number(e.target.value) / 100)}
+            aria-label="Envelope exponent"
+            className="w-full accent-neutral-700 dark:accent-neutral-300"
+          />
+        </div>
+
+        {/* Lightness distribution toggle */}
+        <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
+          {(['linear', 'perceptual'] as const).map((val) => (
+            <button
+              key={val}
+              onClick={() => updateLightnessDistribution(val)}
+              className={`flex-1 py-1 text-[10px] capitalize transition-colors ${
+                lightnessDistribution === val
+                  ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark font-medium'
+                  : 'text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark'
+              }`}
+            >
+              {val}
+            </button>
+          ))}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { IconTrash, IconX } from '@tabler/icons-react'
+import { IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
 import { toast } from 'sonner'
 import type { Palette, PaletteStep } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, getActiveSteps } from '../../types/project'
@@ -120,6 +120,8 @@ function EditableMultiValueRow({
 
 export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Props) {
   const updateStepHex = useProjectStore((s) => s.updateStepHex)
+  const lockStep = useProjectStore((s) => s.lockStep)
+  const unlockStep = useProjectStore((s) => s.unlockStep)
   const deleteStep = useProjectStore((s) => s.deleteStep)
   const recalibratePaletteToStep = useProjectStore((s) => s.recalibratePaletteToStep)
   const updatePaletteLightnessRange = useProjectStore((s) => s.updatePaletteLightnessRange)
@@ -312,7 +314,20 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
       <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Values</span>
-          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">{stepName}</span>
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">{stepName}</span>
+            <button
+              onClick={() => step.locked ? unlockStep(palette.id, step.label) : lockStep(palette.id, step.label)}
+              title={step.locked ? 'Unlock step' : 'Lock step'}
+              aria-label={step.locked ? 'Unlock step' : 'Lock step'}
+              className="w-5 h-5 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors"
+            >
+              {step.locked
+                ? <IconLock size={11} stroke={1.75} />
+                : <IconLockOpen size={11} stroke={1.75} />
+              }
+            </button>
+          </div>
         </div>
 
         {/* Hex */}

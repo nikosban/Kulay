@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { IconLayoutGrid, IconTable } from "@tabler/icons-react";
+import { useRef, useState, Fragment } from "react";
+import { IconLayoutGrid, IconTable, IconLock, IconPlus } from "@tabler/icons-react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { getActiveSteps } from "../../types/project";
 import type { Palette, LabelScale } from "../../types/project";
@@ -193,6 +193,7 @@ export function ProjectScreen() {
   const switchProjectPaletteMode = useProjectStore((s) => s.switchProjectPaletteMode);
   const labelScale = useProjectStore((s) => s.activeProject?.labelScale ?? DEFAULT_LABEL_SCALE);
   const setLabelScale = useProjectStore((s) => s.setLabelScale);
+  const insertStep = useProjectStore((s) => s.insertStep);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -222,6 +223,18 @@ export function ProjectScreen() {
     setOpenPanelKey({ paletteId, stepLabel });
     const el = paletteRefs.current.get(paletteId);
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function handleInsertStep(paletteId: string, leftLabel: number | null, rightLabel: number | null) {
+    if (!selectedPalette) return
+    const oldLValues = getActiveSteps(selectedPalette).map((s) => s.oklch.l)
+    insertStep(paletteId, leftLabel, rightLabel)
+    const updated = useProjectStore.getState().activeProject?.palettes.find((p) => p.id === paletteId)
+    if (!updated) return
+    const newStep = getActiveSteps(updated).find((s) =>
+      oldLValues.every((l) => Math.abs(s.oklch.l - l) > 0.015),
+    )
+    if (newStep) handleOpenStep(paletteId, newStep.label)
   }
 
   const selectedPalette = selectedPaletteId
@@ -264,67 +277,116 @@ export function ProjectScreen() {
         <div className="flex flex-1 overflow-hidden">
 
           {/* ── Detail view: selected palette steps fill the content area ── */}
-          {selectedPalette ? (
-            <div className="flex flex-row flex-1 overflow-hidden">
-              {getActiveSteps(selectedPalette).map((step, idx, steps) => {
-                const lum = relativeLuminance(step.hex);
-                const textColor = lum > 0.18 ? "#111111" : "#ffffff";
-                const isOpen = openPanelKey?.paletteId === selectedPalette.id && openPanelKey.stepLabel === step.label;
-                const isFocused = focusedStepLabel === step.label;
-                return (
-                  <div
-                    key={step.label}
-                    ref={(el) => { if (el) stepDivRefs.current.set(step.label, el); else stepDivRefs.current.delete(step.label); }}
-                    tabIndex={0}
-                    role="button"
-                    aria-label={`Step ${step.label}`}
-                    aria-pressed={isOpen}
-                    className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative focus:outline-none"
-                    style={{ backgroundColor: step.hex }}
-                    onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
-                    onFocus={() => setFocusedStepLabel(step.label)}
-                    onBlur={() => setFocusedStepLabel(null)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'ArrowRight') {
-                        e.preventDefault();
-                        const nextLabel = steps[(idx + 1) % steps.length]!.label;
-                        stepDivRefs.current.get(nextLabel)?.focus();
-                        handleOpenStep(selectedPalette.id, nextLabel);
-                      } else if (e.key === 'ArrowLeft') {
-                        e.preventDefault();
-                        const prevLabel = steps[(idx - 1 + steps.length) % steps.length]!.label;
-                        stepDivRefs.current.get(prevLabel)?.focus();
-                        handleOpenStep(selectedPalette.id, prevLabel);
-                      } else if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleOpenStep(selectedPalette.id, isOpen ? null : step.label);
-                      }
-                    }}
-                  >
-                    {isFocused && (
-                      <div
-                        className="absolute inset-0 pointer-events-none"
-                        style={{ outline: `2px solid ${textColor}`, outlineOffset: '-2px', opacity: 0.6 }}
-                      />
-                    )}
-                    {isOpen && (
-                      <div
-                        className="absolute inset-x-0 top-0 h-[3px]"
-                        style={{ backgroundColor: textColor, opacity: 0.5 }}
-                      />
-                    )}
-                    <span
-                      className="text-[10px] font-mono select-none"
-                      style={{ color: textColor, opacity: isOpen ? 1 : 0.5 }}
-                    >
-                      {step.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+          {selectedPalette ? (() => {
+            const steps = getActiveSteps(selectedPalette);
+            const atMaxSteps = steps.length >= MAX_STEPS;
+            return (
+              <div className="flex flex-row flex-1 overflow-hidden">
 
-          ) : (
+                {/* Left edge insert */}
+                {!atMaxSteps && (
+                  <div className="w-1 flex-shrink-0 relative group/ins">
+                    <button
+                      aria-label="Insert step before first"
+                      onClick={() => handleInsertStep(selectedPalette.id, null, steps[0]!.label)}
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
+                    >
+                      <IconPlus size={10} />
+                    </button>
+                  </div>
+                )}
+
+                {steps.map((step, idx) => {
+                  const lum = relativeLuminance(step.hex);
+                  const textColor = lum > 0.18 ? "#111111" : "#ffffff";
+                  const isOpen = openPanelKey?.paletteId === selectedPalette.id && openPanelKey.stepLabel === step.label;
+                  const isFocused = focusedStepLabel === step.label;
+                  return (
+                    <Fragment key={step.label}>
+                      <div
+                        ref={(el) => { if (el) stepDivRefs.current.set(step.label, el); else stepDivRefs.current.delete(step.label); }}
+                        tabIndex={0}
+                        role="button"
+                        aria-label={`Step ${step.label}`}
+                        aria-pressed={isOpen}
+                        className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative focus:outline-none"
+                        style={{ backgroundColor: step.hex }}
+                        onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
+                        onFocus={() => setFocusedStepLabel(step.label)}
+                        onBlur={() => setFocusedStepLabel(null)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'ArrowRight') {
+                            e.preventDefault();
+                            const nextLabel = steps[(idx + 1) % steps.length]!.label;
+                            stepDivRefs.current.get(nextLabel)?.focus();
+                            handleOpenStep(selectedPalette.id, nextLabel);
+                          } else if (e.key === 'ArrowLeft') {
+                            e.preventDefault();
+                            const prevLabel = steps[(idx - 1 + steps.length) % steps.length]!.label;
+                            stepDivRefs.current.get(prevLabel)?.focus();
+                            handleOpenStep(selectedPalette.id, prevLabel);
+                          } else if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleOpenStep(selectedPalette.id, isOpen ? null : step.label);
+                          }
+                        }}
+                      >
+                        {isFocused && (
+                          <div
+                            className="absolute inset-0 pointer-events-none"
+                            style={{ outline: `2px solid ${textColor}`, outlineOffset: '-2px', opacity: 0.6 }}
+                          />
+                        )}
+                        {isOpen && (
+                          <div
+                            className="absolute inset-x-0 top-0 h-[3px]"
+                            style={{ backgroundColor: textColor, opacity: 0.5 }}
+                          />
+                        )}
+                        {step.locked && (
+                          <div className="absolute top-2 left-1/2 -translate-x-1/2">
+                            <IconLock size={10} style={{ color: textColor, opacity: 0.7 }} />
+                          </div>
+                        )}
+                        <span
+                          className="text-[10px] font-mono select-none"
+                          style={{ color: textColor, opacity: isOpen ? 1 : 0.5 }}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+
+                      {/* Between-column insert */}
+                      {!atMaxSteps && idx < steps.length - 1 && (
+                        <div className="w-1 flex-shrink-0 relative group/ins">
+                          <button
+                            aria-label={`Insert step between ${step.label} and ${steps[idx + 1]!.label}`}
+                            onClick={() => handleInsertStep(selectedPalette.id, step.label, steps[idx + 1]!.label)}
+                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
+                          >
+                            <IconPlus size={10} />
+                          </button>
+                        </div>
+                      )}
+                    </Fragment>
+                  );
+                })}
+
+                {/* Right edge insert */}
+                {!atMaxSteps && (
+                  <div className="w-1 flex-shrink-0 relative group/ins">
+                    <button
+                      aria-label="Insert step after last"
+                      onClick={() => handleInsertStep(selectedPalette.id, steps[steps.length - 1]!.label, null)}
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
+                    >
+                      <IconPlus size={10} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })() : (
             /* ── All colors view ── */
             <main className="flex-1 overflow-hidden flex flex-col">
 

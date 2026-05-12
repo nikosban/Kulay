@@ -1,14 +1,37 @@
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import type { Project, Palette, PaletteStep, LightnessRange, LabelScale } from '../types/project'
 import { DEFAULT_LABEL_SCALE, getActiveSteps } from '../types/project'
 import { createProject } from '../lib/projectFactory'
 import { saveProject, loadProject, deleteProject, listProjectIds, CorruptedProjectError } from '../lib/storage'
 import { sortPalettes } from '../lib/paletteSort'
-import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette } from '../lib/generatePalette'
+import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette, computeStepLabels, type GenOpts } from '../lib/generatePalette'
 import { adjustStepForWcagTarget } from '../lib/wcagTarget'
 import { hexToOklch } from '../lib/color'
 import { inferPaletteName } from '../lib/paletteName'
 import { contrastRatio } from '../lib/wcag'
+
+function projectGenOpts(project: Project): GenOpts {
+  return {
+    envelopeExponent: project.envelopeExponent,
+    lightnessDistribution: project.lightnessDistribution,
+  }
+}
+
+function countLockedLost(palettes: Palette[], newStepCount: number): number {
+  const n = newStepCount + 1
+  const newLabels = computeStepLabels(n)
+  const snapThreshold = 500 / newStepCount
+  let lost = 0
+  for (const palette of palettes) {
+    for (const step of getActiveSteps(palette)) {
+      if (!step.locked || step.isBase) continue
+      const minDist = Math.min(...newLabels.map(l => Math.abs(step.label - l)))
+      if (minDist > snapThreshold) lost++
+    }
+  }
+  return lost
+}
 
 const MIN_STEPS = 2
 const MAX_STEPS = 20
@@ -57,6 +80,8 @@ interface ProjectStore {
   updatePaletteLightnessRange: (paletteId: string, lRange: LightnessRange) => void
   setLabelScale: (scale: LabelScale) => void
   updateLightnessRange: (lRange: LightnessRange) => void
+  updateEnvelopeExponent: (value: number) => void
+  updateLightnessDistribution: (value: 'linear' | 'perceptual') => void
   normalizeAllLabels: () => void
   markDirty: () => void
   markSaved: (timestamp: number) => void
@@ -222,8 +247,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { activeProject } = get()
     if (!activeProject) return
     const clamped = Math.max(MIN_STEPS, Math.min(MAX_STEPS, count))
+    if (clamped < activeProject.stepCount) {
+      const lost = countLockedLost(activeProject.palettes, clamped)
+      if (lost > 0) toast.warning(`${lost} locked step${lost > 1 ? 's' : ''} will be removed.`)
+    }
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) =>
-      regeneratePalette(p, clamped, activeProject.backgrounds, activeProject.lightnessRange),
+      regeneratePalette(p, clamped, activeProject.backgrounds, activeProject.lightnessRange, opts),
     )
     const updated = { ...activeProject, stepCount: clamped, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
@@ -233,9 +263,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { activeProject } = get()
     if (!activeProject) return
     const clamped = Math.max(MIN_STEPS, Math.min(MAX_STEPS, count))
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) =>
       p.id === paletteId
-        ? regeneratePalette(p, clamped, activeProject.backgrounds, activeProject.lightnessRange)
+        ? regeneratePalette(p, clamped, activeProject.backgrounds, activeProject.lightnessRange, opts)
         : p,
     )
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
@@ -253,10 +284,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   switchPaletteMode: (paletteId: string, mode: 'light' | 'dark') => {
     const { activeProject } = get()
     if (!activeProject) return
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) => {
       if (p.id !== paletteId) return p
       if (mode === 'dark' && p.modes.dark === null) {
-        return { ...generateDarkMode(p, activeProject.backgrounds, activeProject.lightnessRange), activeMode: mode }
+        return { ...generateDarkMode(p, activeProject.backgrounds, activeProject.lightnessRange, opts), activeMode: mode }
       }
       return { ...p, activeMode: mode }
     })
@@ -267,9 +299,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   switchProjectPaletteMode: (mode: 'light' | 'dark') => {
     const { activeProject } = get()
     if (!activeProject) return
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) => {
       if (mode === 'dark' && p.modes.dark === null) {
-        return { ...generateDarkMode(p, activeProject.backgrounds, activeProject.lightnessRange), activeMode: mode }
+        return { ...generateDarkMode(p, activeProject.backgrounds, activeProject.lightnessRange, opts), activeMode: mode }
       }
       return { ...p, activeMode: mode }
     })
@@ -325,8 +358,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   autoUpdatePaletteAction: (paletteId: string) => {
     const { activeProject } = get()
     if (!activeProject) return
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) =>
-      p.id !== paletteId ? p : autoUpdatePalette(p, activeProject.backgrounds, activeProject.lightnessRange),
+      p.id !== paletteId ? p : autoUpdatePalette(p, activeProject.backgrounds, activeProject.lightnessRange, opts),
     )
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
@@ -374,10 +408,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const mode = palette.activeMode
     const freshSteps = generateModeSteps(
       palette.baseHex,
-      steps.length, // n+1 total steps
+      steps.length,
       activeProject.backgrounds,
       mode,
       activeProject.lightnessRange,
+      projectGenOpts(activeProject),
     )
     // freshSteps has n+1 entries; find the one whose label is closest to newLabel
     let bestIdx = 0
@@ -440,9 +475,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const [cL, cC, cH] = hexToOklch(newBaseHex)
 
     const { backgrounds, lightnessRange, stepCount } = activeProject
-    const lightSteps = generateModeSteps(newBaseHex, stepCount, backgrounds, 'light', lightnessRange)
+    const opts = projectGenOpts(activeProject)
+    const lightSteps = generateModeSteps(newBaseHex, stepCount, backgrounds, 'light', lightnessRange, opts)
     const darkSteps = palette.modes.dark
-      ? generateModeSteps(newBaseHex, stepCount, backgrounds, 'dark', lightnessRange)
+      ? generateModeSteps(newBaseHex, stepCount, backgrounds, 'dark', lightnessRange, opts)
       : null
 
     // Derive a new name from the new hue — pass all other palettes so collisions resolve to "Blue 2" etc.
@@ -463,9 +499,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const palette = activeProject.palettes.find((p) => p.id === paletteId)
     if (!palette) return
     const stepCount = palette.modes.light.length - 1
-    const lightSteps = generateModeSteps(palette.baseHex, stepCount, activeProject.backgrounds, 'light', lRange)
+    const opts = projectGenOpts(activeProject)
+    const lightSteps = generateModeSteps(palette.baseHex, stepCount, activeProject.backgrounds, 'light', lRange, opts)
     const darkSteps = palette.modes.dark
-      ? generateModeSteps(palette.baseHex, stepCount, activeProject.backgrounds, 'dark', lRange)
+      ? generateModeSteps(palette.baseHex, stepCount, activeProject.backgrounds, 'dark', lRange, opts)
       : null
     const updatedPalette: Palette = { ...palette, lightnessRange: lRange, modes: { light: lightSteps, dark: darkSteps } }
     const palettes = activeProject.palettes.map((p) => (p.id === paletteId ? updatedPalette : p))
@@ -486,10 +523,33 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   updateLightnessRange: (lRange: LightnessRange) => {
     const { activeProject } = get()
     if (!activeProject) return
+    const opts = projectGenOpts(activeProject)
     const palettes = activeProject.palettes.map((p) =>
-      regeneratePalette(p, p.modes.light.length - 1, activeProject.backgrounds, lRange),
+      regeneratePalette(p, p.modes.light.length - 1, activeProject.backgrounds, lRange, opts),
     )
     const updated = { ...activeProject, lightnessRange: lRange, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  updateEnvelopeExponent: (value: number) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const opts: GenOpts = { envelopeExponent: value, lightnessDistribution: activeProject.lightnessDistribution }
+    const palettes = activeProject.palettes.map((p) =>
+      autoUpdatePalette(p, activeProject.backgrounds, activeProject.lightnessRange, opts),
+    )
+    const updated = { ...activeProject, envelopeExponent: value, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  updateLightnessDistribution: (value: 'linear' | 'perceptual') => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const opts: GenOpts = { envelopeExponent: activeProject.envelopeExponent, lightnessDistribution: value }
+    const palettes = activeProject.palettes.map((p) =>
+      autoUpdatePalette(p, activeProject.backgrounds, activeProject.lightnessRange, opts),
+    )
+    const updated = { ...activeProject, lightnessDistribution: value, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
 
