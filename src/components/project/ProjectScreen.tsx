@@ -258,59 +258,6 @@ export function ProjectScreen() {
       {/* ── Main area ── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* Header — sits between left sidebar and right panel */}
-        <header className="flex-shrink-0 flex items-center justify-center gap-3 px-4 py-3 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
-
-          {palettes.length > 0 && backgrounds && (
-            <div className="flex items-center gap-2">
-              <CompactBgInput
-                value={isDark ? backgrounds.dark : backgrounds.light}
-                label={isDark ? "Dark bg" : "Light bg"}
-                onCommit={(hex) => updateBackgrounds(isDark
-                  ? { ...backgrounds, dark: hex }
-                  : { ...backgrounds, light: hex }
-                )}
-              />
-            </div>
-          )}
-
-          {palettes.length > 0 && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => updateProjectStepCount(stepCount - 1)}
-                disabled={stepCount <= MIN_STEPS}
-                className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
-              >−</button>
-              <span className="text-xs text-fg-muted dark:text-fg-muted-dark w-14 text-center tabular-nums">
-                {swatchCount} steps
-              </span>
-              <button
-                onClick={() => updateProjectStepCount(stepCount + 1)}
-                disabled={stepCount >= MAX_STEPS}
-                className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
-              >+</button>
-            </div>
-          )}
-
-          <ThemeToggle
-            isDark={isDark}
-            onToggle={() => {
-              const nextMode = isDark ? "light" : "dark";
-              if (palettes.length > 0) switchProjectPaletteMode(nextMode);
-              toggle();
-            }}
-          />
-
-          {palettes.length > 0 && (
-            <button
-              onClick={() => setShowExport(true)}
-              className="text-sm text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg px-3 py-1.5 transition-colors"
-            >
-              Export
-            </button>
-          )}
-        </header>
-
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
 
@@ -428,6 +375,64 @@ export function ProjectScreen() {
           onDeletePalette={() => handleSelectPalette(null)}
         />
       )}
+
+      {/* ── Floating toolbar ── */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 px-2 py-1.5 rounded-2xl border border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark shadow-lg shadow-black/10 dark:shadow-black/40">
+
+        {palettes.length > 0 && backgrounds && (
+          <>
+            <CompactBgInput
+              value={isDark ? backgrounds.dark : backgrounds.light}
+              label={isDark ? "Dark bg" : "Light bg"}
+              onCommit={(hex) => updateBackgrounds(isDark
+                ? { ...backgrounds, dark: hex }
+                : { ...backgrounds, light: hex }
+              )}
+            />
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+          </>
+        )}
+
+        {palettes.length > 0 && (
+          <>
+            <button
+              onClick={() => updateProjectStepCount(stepCount - 1)}
+              disabled={stepCount <= MIN_STEPS}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+            >−</button>
+            <span className="text-xs text-fg-muted dark:text-fg-muted-dark w-14 text-center tabular-nums">
+              {swatchCount} steps
+            </span>
+            <button
+              onClick={() => updateProjectStepCount(stepCount + 1)}
+              disabled={stepCount >= MAX_STEPS}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark disabled:opacity-30 disabled:cursor-not-allowed text-sm transition-colors"
+            >+</button>
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+          </>
+        )}
+
+        <ThemeToggle
+          isDark={isDark}
+          onToggle={() => {
+            const nextMode = isDark ? "light" : "dark";
+            if (palettes.length > 0) switchProjectPaletteMode(nextMode);
+            toggle();
+          }}
+        />
+
+        {palettes.length > 0 && (
+          <>
+            <div className="w-px h-4 bg-bd-base dark:bg-bd-base-dark mx-1 flex-shrink-0" />
+            <button
+              onClick={() => setShowExport(true)}
+              className="text-sm text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark px-2 py-1 rounded-lg hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
+            >
+              Export
+            </button>
+          </>
+        )}
+      </div>
 
       {showLeaveModal && (
         <ConfirmLeaveModal
