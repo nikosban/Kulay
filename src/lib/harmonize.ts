@@ -46,6 +46,26 @@ function hueShift(H: number, stepFraction: number): number {
   return 0
 }
 
+// Per-hue chroma boost for dark mode: warm hues need more saturation on dark
+// backgrounds; blues/cyans already read strongly so they get a lighter touch.
+function darkChromaBoost(H: number): number {
+  // Reds
+  if ((H >= 0 && H <= 25) || (H >= 345 && H <= 360)) return 1.40
+  // Warm oranges / yellows
+  if (H >= 26 && H <= 90) return 1.35
+  // Yellow-greens / greens
+  if (H >= 91 && H <= 180) return 1.20
+  // Cyans / blue-greens
+  if (H >= 181 && H <= 230) return 1.05
+  // Blues / indigos
+  if (H >= 231 && H <= 270) return 1.08
+  // Purples / violets
+  if (H >= 271 && H <= 320) return 1.18
+  // Magentas / pinks
+  if (H >= 321 && H <= 344) return 1.28
+  return 1.25
+}
+
 // Chroma envelope anchored at base step, tapering toward extremes.
 // FLOOR of 0.07 lets extreme steps fade toward near-gray for a natural tint feel.
 function envelope(t: number, tBase: number, exponent = 0.75): number {
@@ -75,8 +95,8 @@ export function harmonize(
   // Dark:  step 0 = darkest,  step n-1 = lightest (fixed at 0.85 for dark-bg legibility)
   const L_START = mode === 'dark' ? lRange.darkest : lRange.lightest
   const L_END   = mode === 'dark' ? 0.85            : lRange.darkest
-  // Boost chroma for dark backgrounds — colors need more saturation to read well
-  const chromaBoost = mode === 'dark' ? 1.25 : 1.0
+  // Boost chroma for dark backgrounds — per-hue so warm colors get more, blues/cyans less
+  const chromaBoost = mode === 'dark' ? darkChromaBoost(inputH) : 1.0
   const n = stepCount
 
   const lightnesses = Array.from({ length: n }, (_, i) => L_START + (i / (n - 1)) * (L_END - L_START))
