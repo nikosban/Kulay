@@ -127,6 +127,7 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
   const undoDeletePalette = useProjectStore((s) => s.undoDeletePalette)
   const renamePalette = useProjectStore((s) => s.renamePalette)
   const projectLightnessRange = useProjectStore((s) => s.activeProject?.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE)
+  const backgrounds = useProjectStore((s) => s.activeProject?.backgrounds ?? { light: '#FFFFFF', dark: '#000000' })
   const effectiveRange = palette.lightnessRange ?? projectLightnessRange
 
   // ── Inline name editing ───────────────────────────────────────────────────
@@ -381,6 +382,32 @@ export function StepDetailPanel({ palette, step, onClose, onDeletePalette }: Pro
           <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-10 text-right">Ratio</span>
           <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-[52px] text-center">Level</span>
         </div>
+
+        {/* Background rows */}
+        <div className="flex flex-col gap-0.5">
+          {([
+            { label: 'Light bg', hex: backgrounds.light, cr: step.contrast.onLight },
+            { label: 'Dark bg',  hex: backgrounds.dark,  cr: step.contrast.onDark  },
+          ] as const).map(({ label, hex, cr }) => {
+            const lum = relativeLuminance(hex)
+            const textColor = lum > 0.18 ? '#111111' : '#ffffff'
+            const badgeBg = lum > 0.18 ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.15)'
+            const level = wcagLabel(cr)
+            return (
+              <div
+                key={label}
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+                style={{ backgroundColor: hex }}
+              >
+                <span className="flex-1 text-[11px] leading-none" style={{ color: textColor }}>{label}</span>
+                <span className="text-[11px] font-mono w-10 text-right leading-none" style={{ color: textColor, opacity: 0.8 }}>{cr.toFixed(2)}</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded w-[52px] text-center leading-tight" style={{ color: textColor, backgroundColor: badgeBg }}>{level}</span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="border-t border-bd-base dark:border-bd-base-dark" />
 
         {/* Step rows */}
         <div className="flex flex-col gap-0.5">
