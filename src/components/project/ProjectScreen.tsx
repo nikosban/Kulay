@@ -259,11 +259,10 @@ export function ProjectScreen() {
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
         {/* Header — sits between left sidebar and right panel */}
-        <header className="flex-shrink-0 flex items-center gap-3 px-4 py-3 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
-          <div className="flex-1" />
+        <header className="flex-shrink-0 flex items-center justify-center gap-3 px-4 py-3 border-b border-bd-base dark:border-bd-base-dark bg-surface-base dark:bg-surface-base-dark">
 
           {palettes.length > 0 && backgrounds && (
-            <div className="flex items-center gap-2 border-l border-bd-base dark:border-bd-base-dark pl-3">
+            <div className="flex items-center gap-2">
               <CompactBgInput
                 value={isDark ? backgrounds.dark : backgrounds.light}
                 label={isDark ? "Dark bg" : "Light bg"}
@@ -276,7 +275,7 @@ export function ProjectScreen() {
           )}
 
           {palettes.length > 0 && (
-            <div className="flex items-center gap-1 border-l border-bd-base dark:border-bd-base-dark pl-3">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => updateProjectStepCount(stepCount - 1)}
                 disabled={stepCount <= MIN_STEPS}
