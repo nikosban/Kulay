@@ -5,6 +5,7 @@ import { useProjectStore } from '../../store/useProjectStore'
 import { getActiveSteps } from '../../types/project'
 import { generatePalette, validateBasePosition } from '../../lib/generatePalette'
 import { oklchToHex, clampToGamut } from '../../lib/color'
+import { sanitizeHex } from '../../lib/hexInput'
 
 const PALETTE_LIMIT = 10
 
@@ -41,17 +42,24 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
   const [nameValue, setNameValue] = useState('')
   const prevName = useRef('')
 
+  const [showAdder, setShowAdder] = useState(false)
+  const [adderValue, setAdderValue] = useState('')
+  const adderRef = useRef<HTMLInputElement>(null)
+
   if (!activeProject) return null
 
   const palettes = activeProject.palettes
   const atLimit = palettes.length >= PALETTE_LIMIT
 
-  function handleAddRandom() {
-    if (atLimit) return
-    const hex = generateRandomHex(activeProject!.stepCount, activeProject!.lightnessRange)
-    if (!hex) { toast.error('Could not generate a valid random color. Try again.'); return }
+  function commitAdd(hex: string) {
+    const result = sanitizeHex(hex)
+    if (!result) { toast.error('Enter a valid hex color.'); return }
+    if (result.alphaStripped) toast.info('Alpha value removed. Kulay works with solid colors only.')
+    const err = validateBasePosition(result.hex, activeProject!.stepCount, activeProject!.lightnessRange)
+    if (err === 'too-light') { toast.error('Color is too light for this scale.'); return }
+    if (err === 'too-dark')  { toast.error('Color is too dark for this scale.'); return }
     const palette = generatePalette(
-      hex,
+      result.hex,
       activeProject!.stepCount,
       activeProject!.backgrounds,
       activeProject!.palettes,
@@ -59,6 +67,27 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
     )
     addPalette(palette)
     onSelectPalette(palette.id)
+    setShowAdder(false)
+    setAdderValue('')
+  }
+
+  function handleRandom() {
+    if (atLimit) return
+    const hex = generateRandomHex(activeProject!.stepCount, activeProject!.lightnessRange)
+    if (!hex) { toast.error('Could not generate a valid random color. Try again.'); return }
+    commitAdd(hex)
+  }
+
+  function openAdder() {
+    if (atLimit) return
+    setAdderValue('')
+    setShowAdder(true)
+    setTimeout(() => adderRef.current?.focus(), 0)
+  }
+
+  function closeAdder() {
+    setShowAdder(false)
+    setAdderValue('')
   }
 
   function handleDelete(e: React.MouseEvent, paletteId: string, paletteName: string) {
@@ -127,13 +156,12 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
         <div className="flex items-center justify-between px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
           <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Colors</span>
           <button
-            onClick={handleAddRandom}
+            onClick={openAdder}
             disabled={atLimit}
-            title={atLimit ? `Maximum of ${PALETTE_LIMIT} palettes reached` : 'Add a random color'}
-            className="h-6 px-2 flex items-center gap-1 text-[10px] text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark border border-bd-base dark:border-bd-hover-dark rounded-md bg-surface-control dark:bg-surface-control-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title={atLimit ? `Maximum of ${PALETTE_LIMIT} palettes reached` : 'Add color'}
+            className="w-6 h-6 flex items-center justify-center rounded text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            <IconPlus size={10} stroke={2.5} />
-            Add color
+            <IconPlus size={13} stroke={2} />
           </button>
         </div>
 
@@ -160,7 +188,36 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             </span>
           </div>
 
-          {palettes.length === 0 && (
+          {/* Inline hex adder */}
+          {showAdder && (
+            <div className="px-2 py-1.5">
+              <div className="flex items-center gap-1 rounded-md border border-bd-strong dark:border-bd-strong-dark bg-surface-base dark:bg-surface-base-dark px-2 h-8">
+                <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">#</span>
+                <input
+                  ref={adderRef}
+                  type="text"
+                  placeholder="e.g. 3B82F6"
+                  maxLength={8}
+                  spellCheck={false}
+                  value={adderValue}
+                  onChange={(e) => setAdderValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitAdd(adderValue)
+                    if (e.key === 'Escape') closeAdder()
+                  }}
+                  className="flex-1 min-w-0 text-[11px] font-mono text-fg-base dark:text-fg-base-dark bg-transparent outline-none placeholder:text-fg-placeholder dark:placeholder:text-fg-placeholder-dark"
+                />
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); handleRandom() }}
+                  className="text-[10px] text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark transition-colors flex-shrink-0"
+                >
+                  Random
+                </button>
+              </div>
+            </div>
+          )}
+
+          {palettes.length === 0 && !showAdder && (
             <p className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark px-3 py-2">
               No colors yet.
             </p>
