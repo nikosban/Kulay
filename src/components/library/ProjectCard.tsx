@@ -66,7 +66,7 @@ export function ProjectCard({ project, onOpen, onRename, onRemove }: Props) {
 
       <button
         onClick={() => !editing && onOpen(project.id)}
-        className="w-full text-left p-5 pr-20"
+        className="w-full text-left p-3 pr-16"
       >
         {editing ? (
           <input
