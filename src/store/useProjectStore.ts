@@ -433,12 +433,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const step = getActiveSteps(palette).find((s) => s.label === stepLabel)
     if (!step) return
 
-    // Borrow lightness from baseHex so the anchor position in the scale is preserved.
-    // Take hue + chroma from the edited step — that's the user's intent.
-    const [baseL] = hexToOklch(palette.baseHex)
-    const { c: newC, h: newH } = step.oklch
-    const [cL, cC, cH] = clampToGamut(baseL, newC, newH)
-    const newBaseHex = oklchToHex(cL, cC, cH)
+    // Use the step's exact hex as the new base so all three of L, C, H are honoured.
+    // Previously only H+C were taken (L was borrowed from the old baseHex), which meant
+    // edits to a step's lightness or full colour were silently discarded on recalibrate.
+    const newBaseHex = step.hex
+    const [cL, cC, cH] = hexToOklch(newBaseHex)
 
     const { backgrounds, lightnessRange, stepCount } = activeProject
     const lightSteps = generateModeSteps(newBaseHex, stepCount, backgrounds, 'light', lightnessRange)

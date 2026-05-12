@@ -14,8 +14,8 @@ function generateRandomHex(
 ): string | null {
   for (let i = 0; i < 30; i++) {
     const H = Math.random() * 360
-    const C = 0.12 + Math.random() * 0.10
-    const L = 0.48 + Math.random() * 0.20
+    const C = 0.16 + Math.random() * 0.18
+    const L = 0.44 + Math.random() * 0.22
     const [cL, cC, cH] = clampToGamut(L, C, H)
     const hex = oklchToHex(cL, cC, cH)
     if (validateBasePosition(hex, stepCount, lightnessRange) === null) return hex
