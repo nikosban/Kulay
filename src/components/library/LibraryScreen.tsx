@@ -48,7 +48,7 @@ export function LibraryScreen() {
             </button>
           </div>
         ) : (
-          <div className="max-w-2xl mx-auto grid gap-3">
+          <div className="grid gap-3">
             {libraryProjects.map((project) => (
               <ProjectCard
                 key={project.id}
