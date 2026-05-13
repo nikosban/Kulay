@@ -334,8 +334,8 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             <input
               type="text"
               className="flex-1 min-w-0 text-[11px] font-mono text-fg-base dark:text-fg-subtle-dark bg-transparent outline-none"
-              value={hexEditing ? hexInput : step.hex.slice(1).toUpperCase()}
-              onFocus={(e) => { setHexInput(step.hex.slice(1).toUpperCase()); setHexEditing(true); setHexError(''); e.target.select() }}
+              value={hexEditing ? hexInput : step.hex.toUpperCase()}
+              onFocus={(e) => { setHexInput(step.hex.toUpperCase()); setHexEditing(true); setHexError(''); e.target.select() }}
               onChange={(e) => setHexInput(e.target.value)}
               onBlur={(e) => commitHex(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur() }}
