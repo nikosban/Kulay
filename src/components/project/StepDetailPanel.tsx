@@ -279,6 +279,30 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
 
       {/* ── Preset ── */}
       <div className="flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Preset</span>
+          <div className="relative group/tip">
+            <span
+              className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark cursor-default select-none"
+              style={{ textDecoration: 'underline', textDecorationStyle: 'wavy', textUnderlineOffset: '3px' }}
+            >
+              How this works
+            </span>
+            <div className="pointer-events-none absolute right-0 top-full mt-2 w-60 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+              <div className="bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg shadow-lg p-3 text-[10px] text-fg-subtle dark:text-fg-subtle-dark leading-relaxed space-y-1.5">
+                <p>Each preset encodes a <strong className="text-fg-muted dark:text-fg-muted-dark font-medium">lightness range</strong> and <strong className="text-fg-muted dark:text-fg-muted-dark font-medium">chroma curve</strong> into a single named option.</p>
+                <ul className="space-y-1 text-fg-placeholder dark:text-fg-placeholder-dark">
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Balanced</span> — general purpose, works for most hues.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Vivid</span> — pushes chroma up for more saturated colors.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Muted</span> — lower chroma, flatter and softer tones.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Soft</span> — lighter range, good for backgrounds and tints.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">High contrast</span> — stretches from near-white to near-black.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Manual</span> — exposes raw sliders for full control.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="grid grid-cols-3 gap-1">
           {(['balanced', 'vivid', 'muted', 'soft', 'high-contrast', 'manual'] as PalettePreset[]).map((p) => {
             const label = p === 'manual' ? 'Manual' : PALETTE_PRESETS[p].label
