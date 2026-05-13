@@ -157,17 +157,8 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
       <div className="flex flex-col flex-1 overflow-hidden">
 
         {/* Section header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
+        <div className="flex items-center px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
           <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Colors</span>
-          <button
-            onClick={openAdder}
-            disabled={atLimit}
-            title={atLimit ? `Maximum of ${PALETTE_LIMIT} palettes reached` : 'Add color'}
-            aria-label="Add color"
-            className="w-6 h-6 flex items-center justify-center rounded text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            <IconPlus size={13} stroke={2} />
-          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto py-1">
@@ -192,44 +183,6 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
               All colors
             </span>
           </div>
-
-          {/* Inline hex adder */}
-          {showAdder && (
-            <div className="px-2 py-1.5">
-              <div className="flex items-center gap-1 rounded-md border border-bd-strong dark:border-bd-strong-dark bg-surface-base dark:bg-surface-base-dark px-2 h-8">
-                <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">#</span>
-                {(() => {
-                  const preview = sanitizeHex(adderValue)
-                  return preview ? (
-                    <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-bd-base dark:border-bd-base-dark"
-                      style={{ backgroundColor: preview.hex }}
-                    />
-                  ) : null
-                })()}
-                <input
-                  ref={adderRef}
-                  type="text"
-                  placeholder="e.g. 3B82F6"
-                  maxLength={8}
-                  spellCheck={false}
-                  value={adderValue}
-                  onChange={(e) => setAdderValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitAdd(adderValue)
-                    if (e.key === 'Escape') closeAdder()
-                  }}
-                  className="flex-1 min-w-0 text-[11px] font-mono text-fg-base dark:text-fg-base-dark bg-transparent outline-none placeholder:text-fg-placeholder dark:placeholder:text-fg-placeholder-dark"
-                />
-                <button
-                  onMouseDown={(e) => { e.preventDefault(); handleRandom() }}
-                  className="text-[10px] text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark transition-colors flex-shrink-0"
-                >
-                  Random
-                </button>
-              </div>
-            </div>
-          )}
 
           {palettes.length === 0 && !showAdder && (
             <p className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark px-3 py-2">
@@ -283,6 +236,57 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
               </div>
             )
           })}
+
+          {/* Inline hex adder */}
+          {showAdder && (
+            <div className="px-2 py-1.5">
+              <div className="flex items-center gap-1 rounded-md border border-bd-strong dark:border-bd-strong-dark bg-surface-base dark:bg-surface-base-dark px-2 h-8">
+                <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">#</span>
+                {(() => {
+                  const preview = sanitizeHex(adderValue)
+                  return preview ? (
+                    <div
+                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-bd-base dark:border-bd-base-dark"
+                      style={{ backgroundColor: preview.hex }}
+                    />
+                  ) : null
+                })()}
+                <input
+                  ref={adderRef}
+                  type="text"
+                  placeholder="e.g. 3B82F6"
+                  maxLength={8}
+                  spellCheck={false}
+                  value={adderValue}
+                  onChange={(e) => setAdderValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitAdd(adderValue)
+                    if (e.key === 'Escape') closeAdder()
+                  }}
+                  className="flex-1 min-w-0 text-[11px] font-mono text-fg-base dark:text-fg-base-dark bg-transparent outline-none placeholder:text-fg-placeholder dark:placeholder:text-fg-placeholder-dark"
+                />
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); handleRandom() }}
+                  className="text-[10px] text-fg-muted dark:text-fg-muted-dark hover:text-fg-base dark:hover:text-fg-base-dark transition-colors flex-shrink-0"
+                >
+                  Random
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Add color row */}
+          {!showAdder && (
+            <button
+              onClick={openAdder}
+              disabled={atLimit}
+              title={atLimit ? `Maximum of ${PALETTE_LIMIT} palettes reached` : undefined}
+              className="flex items-center gap-1.5 w-full px-3 py-2 text-[12px] text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <IconPlus size={12} stroke={2} />
+              Add color
+            </button>
+          )}
         </div>
       </div>
 
