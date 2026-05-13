@@ -293,7 +293,7 @@ export function ProjectScreen() {
             const steps = getActiveSteps(selectedPalette);
             const atMaxSteps = steps.length >= MAX_STEPS;
             return (
-              <div className="flex flex-row flex-1 overflow-hidden pb-20">
+              <div className="flex flex-row flex-1 overflow-hidden">
 
                 {/* Left edge insert */}
                 {!atMaxSteps && (
@@ -321,7 +321,7 @@ export function ProjectScreen() {
                         role="button"
                         aria-label={`Step ${step.label}`}
                         aria-pressed={isOpen}
-                        className="flex-1 flex flex-col items-center justify-end pb-3 cursor-pointer relative focus:outline-none"
+                        className="flex-1 flex flex-col items-center justify-start pt-3 cursor-pointer relative focus:outline-none"
                         style={{ backgroundColor: step.hex }}
                         onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
                         onFocus={() => setFocusedStepLabel(step.label)}
@@ -355,17 +355,17 @@ export function ProjectScreen() {
                             style={{ backgroundColor: textColor, opacity: 0.5 }}
                           />
                         )}
-                        {step.locked && (
-                          <div className="absolute top-2 left-1/2 -translate-x-1/2">
-                            <IconLock size={10} style={{ color: textColor, opacity: 0.7 }} />
-                          </div>
-                        )}
                         <span
                           className="text-[10px] font-mono select-none"
                           style={{ color: textColor, opacity: isOpen ? 1 : 0.5 }}
                         >
                           {step.label}
                         </span>
+                        {step.locked && (
+                          <div className="mt-1">
+                            <IconLock size={10} style={{ color: textColor, opacity: 0.7 }} />
+                          </div>
+                        )}
                       </div>
 
                       {/* Between-column insert */}
@@ -400,7 +400,7 @@ export function ProjectScreen() {
             );
           })() : (
             /* ── All colors view ── */
-            <main className="flex-1 overflow-hidden flex flex-col pb-20">
+            <main className="flex-1 overflow-hidden flex flex-col">
 
               {palettes.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
