@@ -220,6 +220,15 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             <div className="px-2 py-1.5">
               <div className="flex items-center gap-1 rounded-md border border-bd-strong dark:border-bd-strong-dark bg-surface-base dark:bg-surface-base-dark px-2 h-8">
                 <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">#</span>
+                {(() => {
+                  const preview = sanitizeHex(adderValue)
+                  return preview ? (
+                    <div
+                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-bd-base dark:border-bd-base-dark"
+                      style={{ backgroundColor: preview.hex }}
+                    />
+                  ) : null
+                })()}
                 <input
                   ref={adderRef}
                   type="text"

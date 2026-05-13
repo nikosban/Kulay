@@ -1,4 +1,4 @@
-import { useRef, useState, Fragment } from "react";
+import { useRef, useState, useEffect, Fragment } from "react";
 import { IconLayoutGrid, IconTable, IconLock, IconPlus } from "@tabler/icons-react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { getActiveSteps } from "../../types/project";
@@ -40,6 +40,7 @@ function CompactBgInput({ value, label, onCommit }: {
 
   return (
     <div className="flex items-center gap-1.5">
+      <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">{label}</span>
       <div
         className="relative w-4 h-4 rounded flex-shrink-0 overflow-hidden cursor-pointer border border-bd-base dark:border-bd-hover-dark"
         style={{ backgroundColor: value }}
@@ -56,7 +57,7 @@ function CompactBgInput({ value, label, onCommit }: {
         <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark select-none mr-0.5">#</span>
         <input
           type="text"
-          className="w-16 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
+          className="w-14 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
           value={editing ? inputVal : value.slice(1).toUpperCase()}
           maxLength={8}
           spellCheck={false}
@@ -255,6 +256,17 @@ export function ProjectScreen() {
   useAutoSave();
   useBeforeUnload();
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'e' && palettes.length > 0) {
+        e.preventDefault();
+        setShowExport(true);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [palettes.length]);
+
   function handleBack() {
     if (isDirty) setShowLeaveModal(true);
     else closeProject();
@@ -281,7 +293,7 @@ export function ProjectScreen() {
             const steps = getActiveSteps(selectedPalette);
             const atMaxSteps = steps.length >= MAX_STEPS;
             return (
-              <div className="flex flex-row flex-1 overflow-hidden">
+              <div className="flex flex-row flex-1 overflow-hidden pb-20">
 
                 {/* Left edge insert */}
                 {!atMaxSteps && (
@@ -388,7 +400,7 @@ export function ProjectScreen() {
             );
           })() : (
             /* ── All colors view ── */
-            <main className="flex-1 overflow-hidden flex flex-col">
+            <main className="flex-1 overflow-hidden flex flex-col pb-20">
 
               {palettes.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
