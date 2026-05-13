@@ -173,10 +173,19 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
   const rgbB = parseInt(step.hex.slice(5, 7), 16)
 
   const stepName = `${palette.name}-${step.label}`
-  const oklchStr = `oklch(${l.toFixed(3)} ${c.toFixed(3)} ${h.toFixed(1)})`
-  const hslStr = `hsl(${hslH}, ${hslS}%, ${hslL}%)`
-  const rgbStr = `rgb(${rgbR}, ${rgbG}, ${rgbB})`
-  const hexStr = `#${step.hex.slice(1).toUpperCase()}`
+
+  // Full-ramp copy strings — copy all steps in that format
+  const rampHexCopy = allSteps.map((s) => s.hex.toUpperCase()).join('\n')
+  const rampOklchCopy = allSteps.map((s) =>
+    `oklch(${s.oklch.l.toFixed(3)} ${s.oklch.c.toFixed(3)} ${s.oklch.h.toFixed(1)})`,
+  ).join('\n')
+  const rampHslCopy = allSteps.map((s) => {
+    const [sH, sS, sL] = hexToHsl(s.hex)
+    return `hsl(${sH}, ${sS}%, ${sL}%)`
+  }).join('\n')
+  const rampRgbCopy = allSteps.map((s) =>
+    `rgb(${parseInt(s.hex.slice(1, 3), 16)}, ${parseInt(s.hex.slice(3, 5), 16)}, ${parseInt(s.hex.slice(5, 7), 16)})`,
+  ).join('\n')
 
   function commitColor(colorStr: string) {
     const result = parseColorInput(colorStr)
@@ -343,7 +352,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             />
             <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0">100%</span>
           </div>
-          <CopyButton text={hexStr} />
+          <CopyButton text={rampHexCopy} />
         </div>
         {hexError && <p className="text-[10px] text-fg-danger -mt-1">{hexError}</p>}
 
@@ -352,7 +361,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           keys={['L', 'C', 'H']}
           displays={[`${(l * 100).toFixed(1)}%`, c.toFixed(3), h.toFixed(1)]}
           rawValues={[l.toFixed(4), c.toFixed(4), h.toFixed(2)]}
-          copyText={oklchStr}
+          copyText={rampOklchCopy}
           buildColor={(idx, val, raw) => {
             const v = raw.map((r, i) => i === idx ? val : r)
             return `oklch(${v[0]} ${v[1]} ${v[2]})`
@@ -365,7 +374,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           keys={['H', 'S', 'L']}
           displays={[`${hslH}°`, `${hslS}%`, `${hslL}%`]}
           rawValues={[String(hslH), String(hslS), String(hslL)]}
-          copyText={hslStr}
+          copyText={rampHslCopy}
           buildColor={(idx, val, raw) => {
             const v = raw.map((r, i) => i === idx ? val : r)
             return `hsl(${v[0]}, ${v[1]}%, ${v[2]}%)`
@@ -378,7 +387,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           keys={['R', 'G', 'B']}
           displays={[String(rgbR), String(rgbG), String(rgbB)]}
           rawValues={[String(rgbR), String(rgbG), String(rgbB)]}
-          copyText={rgbStr}
+          copyText={rampRgbCopy}
           buildColor={(idx, val, raw) => {
             const v = raw.map((r, i) => i === idx ? val : r)
             return `rgb(${v[0]}, ${v[1]}, ${v[2]})`
