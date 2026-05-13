@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
 import type { Palette, PaletteStep } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, getActiveSteps } from '../../types/project'
@@ -31,12 +32,35 @@ function hexToHsl(hex: string): [number, number, number] {
   return [Math.round(h), Math.round(s * 100), Math.round(l * 100)]
 }
 
+function writeToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text)
+  }
+  // Fallback for environments without Clipboard API
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('textarea')
+    el.value = text
+    el.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
+    document.body.appendChild(el)
+    el.focus()
+    el.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(el)
+    ok ? resolve() : reject(new Error('execCommand failed'))
+  })
+}
+
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
+  const lineCount = text.split('\n').length
   function copy() {
-    navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    writeToClipboard(text)
+      .then(() => {
+        setCopied(true)
+        toast.success(`${lineCount} value${lineCount > 1 ? 's' : ''} copied`)
+        setTimeout(() => setCopied(false), 1500)
+      })
+      .catch(() => toast.error('Copy failed — try selecting and copying manually'))
   }
   return (
     <button

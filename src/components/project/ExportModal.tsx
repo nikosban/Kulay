@@ -94,9 +94,26 @@ export function ExportModal({ scope, palette, onClose }: Props) {
   async function handleCopy() {
     const text = buildCopyText()
     if (!text) return
-    await navigator.clipboard.writeText(text).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const el = document.createElement('textarea')
+        el.value = text
+        el.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none'
+        document.body.appendChild(el)
+        el.focus()
+        el.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(el)
+        if (!ok) throw new Error('execCommand failed')
+      }
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // Show the text in a selectable prompt as last resort
+      window.prompt('Copy failed — select all and copy manually:', text)
+    }
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
