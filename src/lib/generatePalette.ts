@@ -1,5 +1,5 @@
-import type { Palette, PaletteStep, LightnessRange, LabelScale } from '../types/project'
-import { DEFAULT_LIGHTNESS_RANGE } from '../types/project'
+import type { Palette, PaletteStep, LightnessRange, LabelScale, Project } from '../types/project'
+import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS } from '../types/project'
 import { hexToOklch, clampToGamut, oklchToHex } from './color'
 import { harmonize } from './harmonize'
 import { contrastRatio } from './wcag'
@@ -8,6 +8,23 @@ import { inferPaletteName } from './paletteName'
 export interface GenOpts {
   envelopeExponent?: number
   lightnessDistribution?: 'linear' | 'perceptual'
+}
+
+// Resolves generation opts for a single palette:
+// named preset → preset config; manual → palette's own values; fallback → project values
+export function paletteGenOpts(palette: Palette, project: Project): { opts: GenOpts; lRange: LightnessRange } {
+  const preset = palette.preset ?? DEFAULT_PRESET
+  if (preset !== 'manual') {
+    const cfg = PALETTE_PRESETS[preset]
+    return { opts: { envelopeExponent: cfg.envelopeExponent, lightnessDistribution: cfg.lightnessDistribution }, lRange: cfg.lightnessRange }
+  }
+  return {
+    opts: {
+      envelopeExponent: palette.envelopeExponent ?? project.envelopeExponent ?? 0.75,
+      lightnessDistribution: palette.lightnessDistribution ?? project.lightnessDistribution ?? 'linear',
+    },
+    lRange: palette.lightnessRange ?? project.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE,
+  }
 }
 
 export function computeStepLabels(n: number): number[] {

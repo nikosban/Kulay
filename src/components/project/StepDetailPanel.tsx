@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
-import type { Palette, PaletteStep } from '../../types/project'
-import { DEFAULT_LIGHTNESS_RANGE, getActiveSteps } from '../../types/project'
+import type { Palette, PaletteStep, PalettePreset } from '../../types/project'
+import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS, getActiveSteps } from '../../types/project'
 import { useProjectStore } from '../../store/useProjectStore'
 import { contrastRatio, wcagLabel, relativeLuminance } from '../../lib/wcag'
 import { parseColorInput } from '../../lib/colorInput'
@@ -147,10 +147,23 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
   const deleteStep = useProjectStore((s) => s.deleteStep)
   const recalibratePaletteToStep = useProjectStore((s) => s.recalibratePaletteToStep)
   const updatePaletteLightnessRange = useProjectStore((s) => s.updatePaletteLightnessRange)
+  const applyPalettePreset = useProjectStore((s) => s.applyPalettePreset)
+  const updatePaletteEnvelopeExponent = useProjectStore((s) => s.updatePaletteEnvelopeExponent)
+  const updatePaletteLightnessDistribution = useProjectStore((s) => s.updatePaletteLightnessDistribution)
   const renamePalette = useProjectStore((s) => s.renamePalette)
   const projectLightnessRange = useProjectStore((s) => s.activeProject?.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE)
   const backgrounds = useProjectStore((s) => s.activeProject?.backgrounds ?? { light: '#FFFFFF', dark: '#000000' })
-  const effectiveRange = palette.lightnessRange ?? projectLightnessRange
+
+  const activePreset: PalettePreset = palette.preset ?? DEFAULT_PRESET
+  const effectiveRange = activePreset === 'manual'
+    ? (palette.lightnessRange ?? projectLightnessRange)
+    : PALETTE_PRESETS[activePreset].lightnessRange
+  const effectiveExponent = activePreset === 'manual'
+    ? (palette.envelopeExponent ?? 0.75)
+    : PALETTE_PRESETS[activePreset].envelopeExponent
+  const effectiveDist = activePreset === 'manual'
+    ? (palette.lightnessDistribution ?? 'linear')
+    : PALETTE_PRESETS[activePreset].lightnessDistribution
 
   // ── Inline name editing ───────────────────────────────────────────────────
   const [nameEditing, setNameEditing] = useState(false)
@@ -264,34 +277,86 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
         </button>
       </div>
 
-      {/* ── Lightness range ── */}
+      {/* ── Preset ── */}
       <div className="flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
-          <input
-            type="range" min={75} max={99} step={1}
-            aria-label="Lightest"
-            value={Math.round(effectiveRange.lightest * 100)}
-            onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: Number(e.target.value) / 100 })}
-            className="flex-1 accent-neutral-700 dark:accent-neutral-300"
-          />
-          <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-            {Math.round(effectiveRange.lightest * 100)}
-          </span>
+        <div className="grid grid-cols-3 gap-1">
+          {(['balanced', 'vivid', 'muted', 'soft', 'high-contrast', 'manual'] as PalettePreset[]).map((p) => {
+            const label = p === 'manual' ? 'Manual' : PALETTE_PRESETS[p].label
+            return (
+              <button
+                key={p}
+                onClick={() => applyPalettePreset(palette.id, p)}
+                className={`py-1.5 rounded-md text-[10px] font-medium transition-colors border ${
+                  activePreset === p
+                    ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark border-bd-strong dark:border-bd-strong-dark text-fg-base dark:text-fg-base-dark'
+                    : 'border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-hover dark:hover:border-bd-hover-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Darkest</span>
-          <input
-            type="range" min={5} max={30} step={1}
-            aria-label="Darkest"
-            value={Math.round(effectiveRange.darkest * 100)}
-            onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: Number(e.target.value) / 100 })}
-            className="flex-1 accent-neutral-700 dark:accent-neutral-300"
-          />
-          <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-            {Math.round(effectiveRange.darkest * 100)}
-          </span>
-        </div>
+
+        {/* Manual controls — only shown when preset === 'manual' */}
+        {activePreset === 'manual' && (
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
+              <input
+                type="range" min={75} max={99} step={1}
+                aria-label="Lightest"
+                value={Math.round(effectiveRange.lightest * 100)}
+                onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: Number(e.target.value) / 100 })}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
+                {Math.round(effectiveRange.lightest * 100)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Darkest</span>
+              <input
+                type="range" min={5} max={30} step={1}
+                aria-label="Darkest"
+                value={Math.round(effectiveRange.darkest * 100)}
+                onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: Number(e.target.value) / 100 })}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
+                {Math.round(effectiveRange.darkest * 100)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Expressive</span>
+              <input
+                type="range" min={40} max={140} step={5}
+                aria-label="Envelope exponent"
+                value={Math.round(effectiveExponent * 100)}
+                onChange={(e) => updatePaletteEnvelopeExponent(palette.id, Number(e.target.value) / 100)}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
+                {effectiveExponent.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
+              {(['linear', 'perceptual'] as const).map((val) => (
+                <button
+                  key={val}
+                  onClick={() => updatePaletteLightnessDistribution(palette.id, val)}
+                  className={`flex-1 py-1 text-[10px] capitalize transition-colors ${
+                    effectiveDist === val
+                      ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark font-medium'
+                      : 'text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark'
+                  }`}
+                >
+                  {val}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Preview ── */}
