@@ -5,7 +5,7 @@ import { DEFAULT_LABEL_SCALE, getActiveSteps } from '../types/project'
 import { createProject } from '../lib/projectFactory'
 import { saveProject, loadProject, deleteProject, listProjectIds, CorruptedProjectError } from '../lib/storage'
 import { sortPalettes } from '../lib/paletteSort'
-import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette, computeStepLabels, paletteGenOpts, type GenOpts } from '../lib/generatePalette'
+import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette, computeStepLabels, paletteGenOpts, validateBasePosition, type GenOpts } from '../lib/generatePalette'
 import { adjustStepForWcagTarget } from '../lib/wcagTarget'
 import { hexToOklch } from '../lib/color'
 import { inferPaletteName } from '../lib/paletteName'
@@ -471,26 +471,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const step = getActiveSteps(palette).find((s) => s.label === stepLabel)
     if (!step) return
 
-    // Use the step's exact hex as the new base so all three of L, C, H are honoured.
-    // Previously only H+C were taken (L was borrowed from the old baseHex), which meant
-    // edits to a step's lightness or full colour were silently discarded on recalibrate.
     const newBaseHex = step.hex
     const [cL, cC, cH] = hexToOklch(newBaseHex)
 
-    const { backgrounds, lightnessRange, stepCount } = activeProject
-    const opts = projectGenOpts(activeProject)
-    const lightSteps = generateModeSteps(newBaseHex, stepCount, backgrounds, 'light', lightnessRange, opts)
+    const { backgrounds, stepCount } = activeProject
+    const { opts, lRange } = paletteGenOpts(palette, activeProject)
+
+    const err = validateBasePosition(newBaseHex, stepCount, lRange)
+    if (err === 'too-light') { toast.error('This step is too light to use as a base — pick a mid-range step.'); return }
+    if (err === 'too-dark')  { toast.error('This step is too dark to use as a base — pick a mid-range step.'); return }
+
+    const lightSteps = generateModeSteps(newBaseHex, stepCount, backgrounds, 'light', lRange, opts)
     const darkSteps = palette.modes.dark
-      ? generateModeSteps(newBaseHex, stepCount, backgrounds, 'dark', lightnessRange, opts)
+      ? generateModeSteps(newBaseHex, stepCount, backgrounds, 'dark', lRange, opts)
       : null
 
-    // Derive a new name from the new hue — pass all other palettes so collisions resolve to "Blue 2" etc.
     const otherPalettes = activeProject.palettes.filter((p) => p.id !== paletteId)
     const newName = inferPaletteName(cH, cC, cL, otherPalettes)
 
     const scale = activeProject.labelScale ?? DEFAULT_LABEL_SCALE
     const withSteps: Palette = { ...palette, name: newName, baseHex: newBaseHex, modes: { light: lightSteps, dark: darkSteps } }
-    const updatedPalette = relabelPalette(withSteps, lightnessRange, scale)
+    const updatedPalette = relabelPalette(withSteps, lRange, scale)
     const palettes = activeProject.palettes.map((p) => (p.id === paletteId ? updatedPalette : p))
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
