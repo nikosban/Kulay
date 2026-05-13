@@ -60,6 +60,7 @@ interface ProjectStore {
   removeProject: (id: string) => void
   updateProjectName: (name: string) => void
   addPalette: (palette: Palette) => void
+  reorderPalettes: (orderedIds: string[]) => void
   renamePalette: (paletteId: string, name: string) => void
   deletePalette: (paletteId: string) => void
   undoDeletePalette: () => void
@@ -197,6 +198,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const scale = activeProject.labelScale ?? DEFAULT_LABEL_SCALE
     const labeled = relabelPalette(palette, activeProject.lightnessRange, scale)
     const palettes = sortPalettes([...activeProject.palettes, labeled])
+    const updated = { ...activeProject, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  reorderPalettes: (orderedIds: string[]) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const map = new Map(activeProject.palettes.map((p) => [p.id, p]))
+    const palettes = orderedIds.flatMap((id) => (map.has(id) ? [map.get(id)!] : []))
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
