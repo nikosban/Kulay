@@ -103,13 +103,15 @@ function onSurface(neutral: Palette, bgHex: string, mode: 'light' | 'dark'): Tok
 // ── Role hue targets ─────────────────────────────────────────────────────────
 
 export function getTargetHueForRole(role: PaletteRole, brandHue: number | null): number {
+  // Hues must fall inside classifyPalette's ranges:
+  //   danger 0–25 | warning 26–75 | success 76–170 | informative 171–230 | brand 231–344
   switch (role) {
-    case 'danger':      return 25
-    case 'warning':     return 85
-    case 'informative': return 250
-    case 'success':     return 145
+    case 'danger':      return 10   // red
+    case 'warning':     return 55   // amber/yellow
+    case 'success':     return 135  // green
+    case 'informative': return 210  // blue
     case 'discovery':   return brandHue != null ? (brandHue + 180) % 360 : 280
-    default:            return 200
+    default:            return 270  // purple fallback for brand
   }
 }
 

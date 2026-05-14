@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { toast } from 'sonner'
 import { IconSparkles, IconRefresh, IconX, IconChevronDown, IconChevronRight, IconAlertTriangle } from '@tabler/icons-react'
 import type { Palette } from '../../types/project'
 import type { Theme, ThemeToken, TokenGroup, TokenRef } from '../../types/tokens'
@@ -248,17 +247,6 @@ function getCurrentPaletteIdForRole(theme: Theme, role: PaletteRole): string | n
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 }
 
-function countAssignedTokensForRole(theme: Theme, role: PaletteRole): number {
-  let n = 0
-  for (const group of theme.groups) {
-    for (const token of group.tokens) {
-      if (!token.id.split('/').includes(role)) continue
-      if (token.light || token.dark) n++
-    }
-  }
-  return n
-}
-
 function RoleSelector({
   theme,
   palettes,
@@ -311,17 +299,7 @@ function RoleSelector({
 
             function handleChange(paletteId: string) {
               if (!paletteId) return
-              const newPalette = palettes.find((p) => p.id === paletteId)
-              if (!newPalette) return
-              const assigned = countAssignedTokensForRole(theme, role)
-              if (assigned > 0 && paletteId !== currentPaletteId) {
-                toast(`Replace ${assigned} ${label} token${assigned !== 1 ? 's' : ''} with "${newPalette.name}"?`, {
-                  duration: 8000,
-                  action: { label: 'Replace', onClick: () => onAssignRole(role, paletteId) },
-                })
-              } else {
-                onAssignRole(role, paletteId)
-              }
+              onAssignRole(role, paletteId)
             }
 
             return (
