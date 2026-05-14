@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import type { Project, Palette, PaletteStep, LightnessRange, LabelScale, PalettePreset } from '../types/project'
+import type { Theme, TokenRef } from '../types/tokens'
+import { suggestTheme } from '../lib/tokenSuggest'
 import { DEFAULT_LABEL_SCALE, getActiveSteps } from '../types/project'
 import { createProject } from '../lib/projectFactory'
 import { saveProject, loadProject, deleteProject, listProjectIds, CorruptedProjectError } from '../lib/storage'
@@ -82,6 +84,9 @@ interface ProjectStore {
   applyPalettePreset: (paletteId: string, preset: PalettePreset) => void
   updatePaletteEnvelopeExponent: (paletteId: string, value: number) => void
   updatePaletteLightnessDistribution: (paletteId: string, value: 'linear' | 'perceptual') => void
+  suggestTokenTheme: () => void
+  assignToken: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => void
+  clearTheme: () => void
   setLabelScale: (scale: LabelScale) => void
   updateLightnessRange: (lRange: LightnessRange) => void
   updateEnvelopeExponent: (value: number) => void
@@ -576,6 +581,36 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const final: Palette = { ...manualPalette, modes: { light: lightSteps, dark: darkSteps } }
     const palettes = activeProject.palettes.map((p) => (p.id === paletteId ? final : p))
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  suggestTokenTheme: () => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const theme: Theme = suggestTheme(activeProject.palettes)
+    const updated = { ...activeProject, theme, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  assignToken: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const theme = activeProject.theme
+    if (!theme) return
+    const groups = theme.groups.map((g) => ({
+      ...g,
+      tokens: g.tokens.map((t) =>
+        t.id === tokenId ? { ...t, [mode]: ref } : t,
+      ),
+    }))
+    const updated = { ...activeProject, theme: { ...theme, groups }, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  clearTheme: () => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const updated = { ...activeProject, theme: undefined, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
 

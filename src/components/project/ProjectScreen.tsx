@@ -12,6 +12,7 @@ import { StepDetailPanel } from "./StepDetailPanel";
 import { ExportModal } from "./ExportModal";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { ProjectSidebar } from "./ProjectSidebar";
+import { TokensView } from "../tokens/TokensView";
 import { relativeLuminance } from "../../lib/wcag";
 import { sanitizeHex } from "../../lib/hexInput";
 import { toast } from "sonner";
@@ -198,6 +199,7 @@ export function ProjectScreen() {
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [activeTab, setActiveTab] = useState<'colors' | 'tokens'>('colors');
   const [tableCollapsed, setTableCollapsed] = useState(false);
   const [openPanelKey, setOpenPanelKey] = useState<{ paletteId: string; stepLabel: number } | null>(null);
   const [selectedPaletteId, setSelectedPaletteId] = useState<string | null>(null);
@@ -278,8 +280,10 @@ export function ProjectScreen() {
       {/* ── Left sidebar ── */}
       <ProjectSidebar
         onBack={handleBack}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         selectedPaletteId={selectedPaletteId}
-        onSelectPalette={handleSelectPalette}
+        onSelectPalette={(id) => { setActiveTab('colors'); handleSelectPalette(id); }}
       />
 
       {/* ── Main area ── */}
@@ -287,9 +291,10 @@ export function ProjectScreen() {
 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
+          {activeTab === 'tokens' && <TokensView />}
 
-          {/* ── Detail view: selected palette steps fill the content area ── */}
-          {selectedPalette ? (() => {
+          {/* ── Colors tab content ── */}
+          {activeTab === 'colors' && selectedPalette ? (() => {
             const steps = getActiveSteps(selectedPalette);
             const atMaxSteps = steps.length >= MAX_STEPS;
             return (
@@ -398,7 +403,7 @@ export function ProjectScreen() {
                 )}
               </div>
             );
-          })() : (
+          })() : activeTab === 'colors' ? (
             /* ── All colors view ── */
             <main className="flex-1 overflow-hidden flex flex-col">
 
@@ -467,7 +472,7 @@ export function ProjectScreen() {
                 </>
               )}
             </main>
-          )}
+          ) : null}
 
         </div>
       </div>

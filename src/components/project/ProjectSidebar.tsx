@@ -113,11 +113,13 @@ function SortablePaletteRow({
 
 interface Props {
   onBack: () => void
+  activeTab: 'colors' | 'tokens'
+  onTabChange: (tab: 'colors' | 'tokens') => void
   selectedPaletteId: string | null
   onSelectPalette: (id: string | null) => void
 }
 
-export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: Props) {
+export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPaletteId, onSelectPalette }: Props) {
   const activeProject = useProjectStore((s) => s.activeProject)
   const addPalette = useProjectStore((s) => s.addPalette)
   const reorderPalettes = useProjectStore((s) => s.reorderPalettes)
@@ -252,13 +254,25 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
         )}
       </div>
 
-      {/* ── Colors ── */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      {/* ── Tab bar ── */}
+      <div className="flex border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
+        {(['colors', 'tokens'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => onTabChange(tab)}
+            className={`flex-1 py-2 text-[11px] font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? 'text-fg-base dark:text-fg-base-dark border-b-2 border-fg-base dark:border-fg-base-dark -mb-px'
+                : 'text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-        {/* Section header */}
-        <div className="flex items-center px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Colors</span>
-        </div>
+      {/* ── Colors ── */}
+      {activeTab === 'colors' && <div className="flex flex-col flex-1 overflow-hidden">
 
         <div className="flex-1 overflow-y-auto py-1">
 
@@ -354,7 +368,18 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             </button>
           )}
         </div>
-      </div>
+      </div>}
+
+      {/* ── Tokens tab ── */}
+      {activeTab === 'tokens' && (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex-1 overflow-y-auto py-1">
+            <p className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark px-3 py-2">
+              Token groups appear here.
+            </p>
+          </div>
+        </div>
+      )}
 
     </div>
   )

@@ -42,6 +42,7 @@ export interface Project {
   envelopeExponent?: number               // 0.4–1.4, default 0.75; controls chroma envelope shape
   lightnessDistribution?: 'linear' | 'perceptual'  // default 'linear'
   palettes: Palette[]
+  theme?: import('./tokens').Theme
   createdAt: number
   updatedAt: number
 }
