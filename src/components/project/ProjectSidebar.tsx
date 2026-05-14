@@ -22,6 +22,7 @@ import { getActiveSteps } from '../../types/project'
 import { generatePalette, validateBasePosition } from '../../lib/generatePalette'
 import { oklchToHex, clampToGamut } from '../../lib/color'
 import { sanitizeHex } from '../../lib/hexInput'
+import { TokenEditor } from '../tokens/TokenEditor'
 
 const PALETTE_LIMIT = 10
 
@@ -127,6 +128,34 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
   const undoDeletePalette = useProjectStore((s) => s.undoDeletePalette)
   const projectName = useProjectStore((s) => s.activeProject?.name ?? '')
   const updateProjectName = useProjectStore((s) => s.updateProjectName)
+  const theme = useProjectStore((s) => s.activeProject?.theme ?? null)
+  const missingRoles = useProjectStore((s) => s.tokenMissingRoles)
+  const suggestTokenTheme = useProjectStore((s) => s.suggestTokenTheme)
+  const assignToken = useProjectStore((s) => s.assignToken)
+  const assignRolePalette = useProjectStore((s) => s.assignRolePalette)
+  const generateAndAddRolePalette = useProjectStore((s) => s.generateAndAddRolePalette)
+
+  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const isResizing = useRef(false)
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizing.current = true
+    const startX = e.clientX
+    const startW = sidebarWidth
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizing.current) return
+      setSidebarWidth(Math.min(480, Math.max(180, startW + ev.clientX - startX)))
+    }
+    function onUp() {
+      isResizing.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
@@ -219,7 +248,15 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
   }
 
   return (
-    <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark overflow-hidden">
+    <div
+      className="relative flex-shrink-0 flex flex-col border-r border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark overflow-hidden"
+      style={{ width: sidebarWidth }}
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={startResize}
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-bd-strong/30 dark:hover:bg-bd-strong-dark/30 transition-colors"
+      />
 
       {/* ── Nav ── */}
       <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
@@ -372,13 +409,15 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
 
       {/* ── Tokens tab ── */}
       {activeTab === 'tokens' && (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto py-1">
-            <p className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark px-3 py-2">
-              Token groups appear here.
-            </p>
-          </div>
-        </div>
+        <TokenEditor
+          theme={theme}
+          palettes={palettes}
+          missingRoles={missingRoles}
+          onSuggest={suggestTokenTheme}
+          onAssign={(tokenId, mode, ref) => assignToken(tokenId, mode, ref)}
+          onAssignRole={(role, paletteId) => assignRolePalette(role, paletteId)}
+          onGenerateRole={(role) => generateAndAddRolePalette(role)}
+        />
       )}
 
     </div>

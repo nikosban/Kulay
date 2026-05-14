@@ -1,19 +1,67 @@
 import { useState, useRef, useEffect } from 'react'
-import { IconSparkles, IconRefresh, IconX } from '@tabler/icons-react'
+import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
+import { IconSparkles, IconRefresh, IconX, IconChevronDown, IconChevronRight, IconAlertTriangle } from '@tabler/icons-react'
 import type { Palette } from '../../types/project'
-import type { Theme, ThemeToken, TokenRef } from '../../types/tokens'
+import type { Theme, ThemeToken, TokenGroup, TokenRef } from '../../types/tokens'
 import { getActiveSteps } from '../../types/project'
 import { resolveToken, isBrokenRef } from '../../lib/tokenResolve'
+import type { PaletteRole } from '../../lib/tokenSuggest'
 
-// ── Step picker popover ───────────────────────────────────────────────────────
+// ── Tree parsing ──────────────────────────────────────────────────────────────
+
+type TreeLeaf   = { kind: 'leaf';   token: ThemeToken; label: string }
+type TreeBranch = { kind: 'branch'; label: string; children: Array<{ token: ThemeToken; label: string }> }
+type TreeNode   = TreeLeaf | TreeBranch
+
+function buildTree(tokens: ThemeToken[], groupId: string): TreeNode[] {
+  const nodes: TreeNode[] = []
+  for (const token of tokens) {
+    const rest  = token.id.startsWith(groupId + '/') ? token.id.slice(groupId.length + 1) : token.id
+    const parts = rest.split('/')
+    if (parts.length === 1) {
+      nodes.push({ kind: 'leaf', token, label: parts[0] })
+    } else {
+      const branchLabel = parts[0]
+      const leafLabel   = parts.slice(1).join('/')
+      const last = nodes[nodes.length - 1]
+      if (last?.kind === 'branch' && last.label === branchLabel) {
+        last.children.push({ token, label: leafLabel })
+      } else {
+        nodes.push({ kind: 'branch', label: branchLabel, children: [{ token, label: leafLabel }] })
+      }
+    }
+  }
+  return nodes
+}
+
+// ── Tree connector ────────────────────────────────────────────────────────────
+
+function TreeConnector({ isLast }: { isLast: boolean }) {
+  return (
+    <div aria-hidden className="relative self-stretch flex-shrink-0" style={{ width: 18 }}>
+      {/* Vertical line — stops at midpoint for last item, full height otherwise */}
+      <div
+        className="absolute left-[5px] top-0 w-px bg-bd-base dark:bg-bd-base-dark opacity-40"
+        style={{ bottom: isLast ? '50%' : 0 }}
+      />
+      {/* Horizontal elbow */}
+      <div className="absolute left-[5px] top-1/2 h-px w-[9px] bg-bd-base dark:bg-bd-base-dark opacity-40" />
+    </div>
+  )
+}
+
+// ── Step picker popover (portal) ──────────────────────────────────────────────
 
 function StepPicker({
+  anchorRect,
   palettes,
   current,
   onSelect,
   onClear,
   onClose,
 }: {
+  anchorRect: DOMRect
   palettes: Palette[]
   current: TokenRef | null
   onSelect: (ref: TokenRef) => void
@@ -30,10 +78,14 @@ function StepPicker({
     return () => document.removeEventListener('mousedown', onDown)
   }, [onClose])
 
-  return (
+  const left = Math.min(anchorRect.left, window.innerWidth - 232)
+  const top  = anchorRect.bottom + 6
+
+  return createPortal(
     <div
       ref={ref}
-      className="absolute top-full left-0 mt-1 z-50 bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg shadow-lg p-2 w-56"
+      style={{ position: 'fixed', top, left, zIndex: 9999, width: 224 }}
+      className="bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg shadow-lg p-2"
     >
       <div className="flex flex-col gap-2">
         {palettes.map((palette) => {
@@ -70,7 +122,8 @@ function StepPicker({
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -78,108 +131,327 @@ function StepPicker({
 
 function TokenRow({
   token,
+  label,
+  connector,
+  isLast,
   palettes,
+  isMissing,
   onAssign,
 }: {
   token: ThemeToken
+  label: string
+  connector?: boolean
+  isLast?: boolean
   palettes: Palette[]
+  isMissing: boolean
   onAssign: (mode: 'light' | 'dark', ref: TokenRef | null) => void
 }) {
-  const [picker, setPicker] = useState<'light' | 'dark' | null>(null)
+  const [pickerState, setPickerState] = useState<{ mode: 'light' | 'dark'; rect: DOMRect } | null>(null)
 
-  const lightHex = token.light ? resolveToken(token, palettes, 'light') : null
-  const darkHex  = token.dark  ? resolveToken(token, palettes, 'dark')  : null
-  const lightBroken = token.light ? isBrokenRef(token.light, palettes) : false
-  const darkBroken  = token.dark  ? isBrokenRef(token.dark,  palettes) : false
+  const lightHex    = token.light ? resolveToken(token, palettes, 'light') : null
+  const darkHex     = token.dark  ? resolveToken(token, palettes, 'dark')  : null
+  const lightBroken = token.light ? isBrokenRef(token.light, palettes, 'light') : false
+  const darkBroken  = token.dark  ? isBrokenRef(token.dark,  palettes, 'dark')  : false
 
-  function swatchClass(broken: boolean) {
-    return `w-5 h-5 rounded border flex-shrink-0 cursor-pointer transition-transform hover:scale-110 ${
-      broken ? 'border-red-400 dark:border-red-500' : 'border-bd-base dark:border-bd-base-dark'
-    }`
+  function swatchClass(hex: string | null, broken: boolean) {
+    const base = 'w-5 h-5 rounded border flex-shrink-0 cursor-pointer transition-transform hover:scale-110'
+    if (broken) return `${base} border-amber-400 dark:border-amber-500`
+    if (!hex && isMissing) return `${base} border-dashed border-amber-400 dark:border-amber-500`
+    return `${base} border-bd-base dark:border-bd-base-dark`
+  }
+
+  function openPicker(e: React.MouseEvent<HTMLButtonElement>, mode: 'light' | 'dark') {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setPickerState(pickerState?.mode === mode ? null : { mode, rect })
   }
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 group hover:bg-surface-neutral-subtle-active/40 dark:hover:bg-surface-neutral-subtle-active-dark/20 rounded">
-      <div className="flex-1 min-w-0">
-        <span className="text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark truncate block">
-          {token.name}
-        </span>
-        <span className="text-[9px] text-fg-placeholder dark:text-fg-placeholder-dark truncate block">
-          {token.description}
-        </span>
-      </div>
+    <div
+      title={token.description}
+      className={`flex items-center gap-2 py-1 group rounded ${
+        isMissing && !token.light && !token.dark
+          ? 'hover:bg-amber-50 dark:hover:bg-amber-950/20'
+          : 'hover:bg-surface-neutral-subtle-active/40 dark:hover:bg-surface-neutral-subtle-active-dark/20'
+      }`}
+      style={{ paddingRight: 12, paddingLeft: connector ? 0 : 10 }}
+    >
+      {connector && <TreeConnector isLast={isLast ?? false} />}
+
+      <span className="flex-1 min-w-0 truncate text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark">
+        {label}
+      </span>
 
       {/* Light swatch */}
-      <div className="relative flex-shrink-0">
-        <button
-          title={lightBroken ? 'Broken reference — click to reassign' : `Light: ${lightHex ?? 'unset'}`}
-          onClick={() => setPicker(picker === 'light' ? null : 'light')}
-          className={swatchClass(lightBroken)}
-          style={{ backgroundColor: lightHex ?? 'transparent' }}
-        >
-          {!lightHex && <span className="w-full h-full flex items-center justify-center text-[8px] text-fg-placeholder dark:text-fg-placeholder-dark">+</span>}
-        </button>
-        {picker === 'light' && (
-          <StepPicker
-            palettes={palettes}
-            current={token.light}
-            onSelect={(ref) => onAssign('light', ref)}
-            onClear={() => onAssign('light', null)}
-            onClose={() => setPicker(null)}
-          />
+      <button
+        title={lightBroken ? 'Broken reference — click to reassign' : `Light: ${lightHex ?? 'unset'}`}
+        onClick={(e) => openPicker(e, 'light')}
+        className={swatchClass(lightHex, lightBroken)}
+        style={{ backgroundColor: lightHex ?? 'transparent' }}
+      >
+        {!lightHex && (
+          <span className={`w-full h-full flex items-center justify-center text-[8px] ${
+            isMissing ? 'text-amber-400 dark:text-amber-500' : 'text-fg-placeholder dark:text-fg-placeholder-dark'
+          }`}>+</span>
         )}
-      </div>
+      </button>
 
       {/* Dark swatch */}
-      <div className="relative flex-shrink-0">
-        <button
-          title={darkBroken ? 'Broken reference — click to reassign' : `Dark: ${darkHex ?? 'unset'}`}
-          onClick={() => setPicker(picker === 'dark' ? null : 'dark')}
-          className={swatchClass(darkBroken)}
-          style={{ backgroundColor: darkHex ?? 'transparent' }}
-        >
-          {!darkHex && <span className="w-full h-full flex items-center justify-center text-[8px] text-fg-placeholder dark:text-fg-placeholder-dark">+</span>}
-        </button>
-        {picker === 'dark' && (
-          <StepPicker
-            palettes={palettes}
-            current={token.dark}
-            onSelect={(ref) => onAssign('dark', ref)}
-            onClear={() => onAssign('dark', null)}
-            onClose={() => setPicker(null)}
-          />
+      <button
+        title={darkBroken ? 'Broken reference — click to reassign' : `Dark: ${darkHex ?? 'unset'}`}
+        onClick={(e) => openPicker(e, 'dark')}
+        className={swatchClass(darkHex, darkBroken)}
+        style={{ backgroundColor: darkHex ?? 'transparent' }}
+      >
+        {!darkHex && (
+          <span className={`w-full h-full flex items-center justify-center text-[8px] ${
+            isMissing ? 'text-amber-400 dark:text-amber-500' : 'text-fg-placeholder dark:text-fg-placeholder-dark'
+          }`}>+</span>
         )}
-      </div>
+      </button>
+
+      {pickerState && (
+        <StepPicker
+          anchorRect={pickerState.rect}
+          palettes={palettes}
+          current={pickerState.mode === 'light' ? token.light : token.dark}
+          onSelect={(ref) => onAssign(pickerState.mode, ref)}
+          onClear={() => onAssign(pickerState.mode, null)}
+          onClose={() => setPickerState(null)}
+        />
+      )}
     </div>
   )
 }
 
-// ── Token group ───────────────────────────────────────────────────────────────
+// ── Role selector ─────────────────────────────────────────────────────────────
+
+const SEMANTIC_ROLES: { role: PaletteRole; label: string; fallbackColor: string }[] = [
+  { role: 'brand',       label: 'Brand',       fallbackColor: '#8b5cf6' },
+  { role: 'neutral',     label: 'Neutral',     fallbackColor: '#a3a3a3' },
+  { role: 'danger',      label: 'Danger',      fallbackColor: '#ef4444' },
+  { role: 'success',     label: 'Success',     fallbackColor: '#22c55e' },
+  { role: 'warning',     label: 'Warning',     fallbackColor: '#f59e0b' },
+  { role: 'informative', label: 'Informative', fallbackColor: '#3b82f6' },
+  { role: 'discovery',   label: 'Discovery',   fallbackColor: '#06b6d4' },
+]
+
+function getCurrentPaletteIdForRole(theme: Theme, role: PaletteRole): string | null {
+  const counts = new Map<string, number>()
+  for (const group of theme.groups) {
+    for (const token of group.tokens) {
+      if (!token.id.split('/').includes(role)) continue
+      if (token.light?.paletteId) counts.set(token.light.paletteId, (counts.get(token.light.paletteId) ?? 0) + 1)
+      if (token.dark?.paletteId)  counts.set(token.dark.paletteId,  (counts.get(token.dark.paletteId)  ?? 0) + 1)
+    }
+  }
+  if (counts.size === 0) return null
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+}
+
+function countAssignedTokensForRole(theme: Theme, role: PaletteRole): number {
+  let n = 0
+  for (const group of theme.groups) {
+    for (const token of group.tokens) {
+      if (!token.id.split('/').includes(role)) continue
+      if (token.light || token.dark) n++
+    }
+  }
+  return n
+}
+
+function RoleSelector({
+  theme,
+  palettes,
+  missingRoles,
+  onAssignRole,
+  onGenerateRole,
+}: {
+  theme: Theme
+  palettes: Palette[]
+  missingRoles: PaletteRole[]
+  onAssignRole: (role: PaletteRole, paletteId: string) => void
+  onGenerateRole: (role: PaletteRole) => void
+}) {
+  const [open, setOpen] = useState(true)
+
+  return (
+    <div className="border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
+      {/* Section header */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 w-full px-3 py-2 text-left hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors"
+      >
+        {open
+          ? <IconChevronDown size={10} className="text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0" />
+          : <IconChevronRight size={10} className="text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0" />
+        }
+        <span className="text-[10px] font-semibold text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide flex-1">
+          Palette roles
+        </span>
+        {missingRoles.length > 0 && (
+          <span className="text-[9px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+            <IconAlertTriangle size={9} />
+            {missingRoles.length}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="flex flex-col pb-1.5">
+          {SEMANTIC_ROLES.map(({ role, label, fallbackColor }) => {
+            const currentPaletteId = getCurrentPaletteIdForRole(theme, role)
+            const currentPalette   = palettes.find((p) => p.id === currentPaletteId)
+            const isMissing        = missingRoles.includes(role)
+
+            // Swatch: mid-tone step from the assigned palette, or fallback colour
+            const swatchSteps  = currentPalette ? getActiveSteps(currentPalette) : null
+            const swatchHex    = swatchSteps
+              ? swatchSteps[Math.floor(swatchSteps.length * 0.45)]?.hex ?? fallbackColor
+              : null
+
+            function handleChange(paletteId: string) {
+              if (!paletteId) return
+              const newPalette = palettes.find((p) => p.id === paletteId)
+              if (!newPalette) return
+              const assigned = countAssignedTokensForRole(theme, role)
+              if (assigned > 0 && paletteId !== currentPaletteId) {
+                toast(`Replace ${assigned} ${label} token${assigned !== 1 ? 's' : ''} with "${newPalette.name}"?`, {
+                  duration: 8000,
+                  action: { label: 'Replace', onClick: () => onAssignRole(role, paletteId) },
+                })
+              } else {
+                onAssignRole(role, paletteId)
+              }
+            }
+
+            return (
+              <div key={role} className="flex items-center gap-2 px-3 py-[3px]">
+                {/* Colour dot */}
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: swatchHex ?? fallbackColor, opacity: isMissing ? 0.35 : 1 }}
+                />
+
+                <span className={`text-[10px] w-[68px] flex-shrink-0 ${
+                  isMissing ? 'text-amber-600 dark:text-amber-400' : 'text-fg-subtle dark:text-fg-subtle-dark'
+                }`}>
+                  {label}
+                </span>
+
+                {isMissing ? (
+                  <button
+                    onClick={() => onGenerateRole(role)}
+                    className="flex-1 text-left text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors flex items-center gap-1"
+                  >
+                    <IconAlertTriangle size={9} />
+                    Generate
+                  </button>
+                ) : (
+                  <select
+                    value={currentPaletteId ?? ''}
+                    onChange={(e) => handleChange(e.target.value)}
+                    className="flex-1 min-w-0 text-[10px] bg-transparent text-fg-muted dark:text-fg-muted-dark border border-bd-base dark:border-bd-base-dark rounded px-1 py-[1px] cursor-pointer appearance-none truncate"
+                  >
+                    <option value="">—</option>
+                    {palettes.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Collapsible token group ───────────────────────────────────────────────────
 
 function TokenGroupSection({
-  name,
-  tokens,
+  group,
   palettes,
+  missingRoles,
   onAssign,
 }: {
-  name: string
-  tokens: ThemeToken[]
+  group: TokenGroup
   palettes: Palette[]
+  missingRoles: PaletteRole[]
   onAssign: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => void
 }) {
+  const [open, setOpen] = useState(true)
+
+  function tokenIsMissing(token: ThemeToken): boolean {
+    return missingRoles.some((role) => token.id.split('/').includes(role))
+  }
+
+  const missingCount = group.tokens.filter(tokenIsMissing).length
+  const tree = buildTree(group.tokens, group.id)
+
+  function renderLeaf(token: ThemeToken, label: string, connector = false, isLast = false) {
+    return (
+      <TokenRow
+        key={token.id}
+        token={token}
+        label={label}
+        connector={connector}
+        isLast={isLast}
+        palettes={palettes}
+        isMissing={tokenIsMissing(token)}
+        onAssign={(mode, ref) => onAssign(token.id, mode, ref)}
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col">
-      <div className="flex items-center gap-2 px-3 py-2 sticky top-0 bg-surface-sunken dark:bg-surface-sunken-dark z-10">
-        <span className="text-[10px] font-semibold text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide">{name}</span>
-      </div>
-      {tokens.map((token) => (
-        <TokenRow
-          key={token.id}
-          token={token}
-          palettes={palettes}
-          onAssign={(mode, ref) => onAssign(token.id, mode, ref)}
-        />
-      ))}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-2 sticky top-0 bg-surface-sunken dark:bg-surface-sunken-dark z-10 hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark transition-colors w-full text-left"
+      >
+        {open
+          ? <IconChevronDown size={10} className="text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0" />
+          : <IconChevronRight size={10} className="text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0" />
+        }
+        <span className="text-[10px] font-semibold text-fg-muted dark:text-fg-muted-dark uppercase tracking-wide flex-1">
+          {group.name}
+        </span>
+        {missingCount > 0 && (
+          <span className="text-[9px] text-amber-600 dark:text-amber-400 flex items-center gap-0.5">
+            <IconAlertTriangle size={9} />
+            {missingCount}
+          </span>
+        )}
+        <span className="text-[9px] text-fg-placeholder dark:text-fg-placeholder-dark ml-1">
+          {group.tokens.length}
+        </span>
+      </button>
+
+      {open && (
+        <div className="pb-1">
+          {tree.map((node) => {
+            if (node.kind === 'leaf') return renderLeaf(node.token, node.label)
+
+            return (
+              <div key={node.label}>
+                {/* Branch label */}
+                <div className="flex items-center px-3 pt-1.5 pb-0.5">
+                  <span className="text-[9px] font-medium text-fg-placeholder dark:text-fg-placeholder-dark uppercase tracking-wider">
+                    {node.label}
+                  </span>
+                </div>
+                {/* Children indented, each with its own L-connector */}
+                <div style={{ paddingLeft: 14 }}>
+                  {node.children.map(({ token, label }, i) =>
+                    renderLeaf(token, label, true, i === node.children.length - 1)
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -189,18 +461,21 @@ function TokenGroupSection({
 interface Props {
   theme: Theme | null
   palettes: Palette[]
+  missingRoles: PaletteRole[]
   onSuggest: () => void
   onAssign: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => void
+  onAssignRole: (role: PaletteRole, paletteId: string) => void
+  onGenerateRole: (role: PaletteRole) => void
 }
 
-export function TokenEditor({ theme, palettes, onSuggest, onAssign }: Props) {
+export function TokenEditor({ theme, palettes, missingRoles, onSuggest, onAssign, onAssignRole, onGenerateRole }: Props) {
   if (!theme) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center gap-4 p-8 text-center">
         <div className="flex flex-col gap-1.5">
           <p className="text-[13px] font-medium text-fg-base dark:text-fg-base-dark">No tokens yet</p>
           <p className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark max-w-xs">
-            Generate a starter token set from your palettes, then adjust the mappings to fit your design.
+            Generate a starter token set from your palettes, then adjust the mappings.
           </p>
         </div>
         <button
@@ -222,31 +497,38 @@ export function TokenEditor({ theme, palettes, onSuggest, onAssign }: Props) {
     <div className="flex flex-col flex-1 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Token</span>
-          <div className="flex items-center gap-6 ml-auto">
-            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Light</span>
-            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Dark</span>
-          </div>
+        <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">Token</span>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">L</span>
+          <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">D</span>
+          <button
+            onClick={onSuggest}
+            title="Re-suggest from current palettes"
+            className="flex items-center gap-1 text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark transition-colors ml-1"
+          >
+            <IconRefresh size={11} />
+            Sync
+          </button>
         </div>
-        <button
-          onClick={onSuggest}
-          title="Re-suggest from current palettes"
-          className="flex items-center gap-1 text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark transition-colors"
-        >
-          <IconRefresh size={11} />
-          Sync
-        </button>
       </div>
 
-      {/* Token list */}
+      {/* Role selector */}
+      <RoleSelector
+        theme={theme}
+        palettes={palettes}
+        missingRoles={missingRoles}
+        onAssignRole={onAssignRole}
+        onGenerateRole={onGenerateRole}
+      />
+
+      {/* Token groups */}
       <div className="flex-1 overflow-y-auto pb-6">
         {theme.groups.map((group) => (
           <TokenGroupSection
             key={group.id}
-            name={group.name}
-            tokens={group.tokens}
+            group={group}
             palettes={palettes}
+            missingRoles={missingRoles}
             onAssign={onAssign}
           />
         ))}
