@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { resolveTheme } from '../../lib/tokenResolve'
 import { TokenPreview } from './TokenPreview'
-import { ComponentDetail, COMPONENTS, type ComponentType } from './ComponentDetail'
+import { ComponentDetail, COMPONENT_GROUPS, type ComponentType } from './ComponentDetail'
 import { useTheme } from '../../contexts/ThemeContext'
 
 export function TokensView() {
@@ -95,14 +95,24 @@ export function TokensView() {
 
         {/* Component list */}
         <div className="flex flex-col overflow-y-auto flex-1" style={{ padding: '0 4px 8px' }}>
-          {COMPONENTS.map(({ id, label }) => (
-            <NavItem
-              key={id}
-              label={label}
-              active={selected === id}
-              onClick={() => setSelected(selected === id ? null : id)}
-              brandSub={brandSub} brandText={brandText} textSec={textSec}
-            />
+          {COMPONENT_GROUPS.map((group, gi) => (
+            <div key={group.label}>
+              {gi > 0 && (
+                <div style={{ height: 1, backgroundColor: border, margin: '4px 8px', opacity: 0.4 }} />
+              )}
+              <div style={{ padding: '6px 8px 2px', fontSize: 9, fontWeight: 600, color: textSec, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.6 }}>
+                {group.label}
+              </div>
+              {group.items.map(({ id, label }) => (
+                <NavItem
+                  key={id}
+                  label={label}
+                  active={selected === id}
+                  onClick={() => setSelected(selected === id ? null : id)}
+                  brandSub={brandSub} brandText={brandText} textSec={textSec}
+                />
+              ))}
+            </div>
           ))}
         </div>
       </div>

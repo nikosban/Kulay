@@ -13,26 +13,64 @@ export type ComponentType =
   | 'select' | 'tabs' | 'avatar' | 'progress'
   | 'modal' | 'tooltip'
 
-export const COMPONENTS: { id: ComponentType; label: string }[] = [
-  { id: 'button',     label: 'Button' },
-  { id: 'input',      label: 'Input' },
-  { id: 'textarea',   label: 'Textarea' },
-  { id: 'select',     label: 'Select' },
-  { id: 'checkbox',   label: 'Checkbox' },
-  { id: 'radio',      label: 'Radio' },
-  { id: 'toggle',     label: 'Toggle' },
-  { id: 'badge',      label: 'Badge' },
-  { id: 'alert',      label: 'Alert' },
-  { id: 'tabs',       label: 'Tabs' },
-  { id: 'avatar',     label: 'Avatar' },
-  { id: 'progress',   label: 'Progress' },
-  { id: 'tooltip',    label: 'Tooltip' },
-  { id: 'modal',      label: 'Modal' },
-  { id: 'card',       label: 'Card' },
-  { id: 'table',      label: 'Table' },
-  { id: 'navigation', label: 'Navigation' },
-  { id: 'surfaces',   label: 'Surfaces' },
+export const COMPONENT_GROUPS: { label: string; items: { id: ComponentType; label: string }[] }[] = [
+  {
+    label: 'Actions',
+    items: [
+      { id: 'button', label: 'Button' },
+    ],
+  },
+  {
+    label: 'Form',
+    items: [
+      { id: 'input',    label: 'Input' },
+      { id: 'textarea', label: 'Textarea' },
+      { id: 'select',   label: 'Select' },
+      { id: 'checkbox', label: 'Checkbox' },
+      { id: 'radio',    label: 'Radio' },
+      { id: 'toggle',   label: 'Toggle' },
+    ],
+  },
+  {
+    label: 'Feedback',
+    items: [
+      { id: 'badge',    label: 'Badge' },
+      { id: 'alert',    label: 'Alert' },
+      { id: 'progress', label: 'Progress' },
+      { id: 'tooltip',  label: 'Tooltip' },
+    ],
+  },
+  {
+    label: 'Overlay',
+    items: [
+      { id: 'modal', label: 'Modal' },
+    ],
+  },
+  {
+    label: 'Navigation',
+    items: [
+      { id: 'tabs',       label: 'Tabs' },
+      { id: 'navigation', label: 'Navigation' },
+    ],
+  },
+  {
+    label: 'Display',
+    items: [
+      { id: 'avatar', label: 'Avatar' },
+      { id: 'card',   label: 'Card' },
+      { id: 'table',  label: 'Table' },
+    ],
+  },
+  {
+    label: 'Foundations',
+    items: [
+      { id: 'surfaces', label: 'Surfaces' },
+    ],
+  },
 ]
+
+export const COMPONENTS: { id: ComponentType; label: string }[] =
+  COMPONENT_GROUPS.flatMap((g) => g.items)
 
 const COMPONENT_TOKENS: Record<ComponentType, (keyof TokenColors)[]> = {
   button:     ['brand', 'onBrand', 'brandSub', 'brandText', 'border', 'textSec', 'danger', 'focusRing', 'disabled', 'textPh'],
