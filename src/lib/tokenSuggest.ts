@@ -145,7 +145,10 @@ function findDiscovery(
 
 // ── Main suggest ──────────────────────────────────────────────────────────────
 
-export function suggestTheme(palettes: Palette[]): SuggestResult {
+export function suggestTheme(
+  palettes: Palette[],
+  roleOverrides: Partial<Record<PaletteRole, string>> = {},
+): SuggestResult {
   const emptyTheme: Theme = {
     groups: DEFAULT_TOKEN_GROUPS.map((g) => ({
       ...g,
@@ -159,23 +162,31 @@ export function suggestTheme(palettes: Palette[]): SuggestResult {
   const byRole = (role: PaletteRole) =>
     classified.filter((c) => c.role === role).sort((a, b) => b.chroma - a.chroma)[0]?.palette ?? null
 
-  const neutral =
+  // If an override is provided for a role, use that palette; otherwise fall back to classified result.
+  function pick(role: PaletteRole, fallback: Palette | null): Palette | null {
+    const id = roleOverrides[role]
+    return id ? (palettes.find((p) => p.id === id) ?? fallback) : fallback
+  }
+
+  const classifiedNeutral =
     classified.filter((c) => c.role === 'neutral').sort((a, b) => a.chroma - b.chroma)[0]?.palette ??
     classified.sort((a, b) => a.chroma - b.chroma)[0]!.palette
 
-  const brand =
+  const classifiedBrand =
     classified
       .filter((c) => !['neutral', 'danger', 'success', 'warning', 'informative'].includes(c.role))
       .sort((a, b) => b.chroma - a.chroma)[0]?.palette ??
     classified.sort((a, b) => b.chroma - a.chroma)[0]!.palette
 
+  const neutral = pick('neutral', classifiedNeutral) ?? classifiedNeutral
+  const brand   = pick('brand',   classifiedBrand)   ?? classifiedBrand
   const brandHue = classified.find((c) => c.palette.id === brand.id)?.hue ?? 0
 
-  const danger      = byRole('danger')
-  const success     = byRole('success')
-  const warning     = byRole('warning')
-  const informative = byRole('informative')
-  const discovery   = findDiscovery(classified, brandHue)
+  const danger      = pick('danger',      byRole('danger'))
+  const success     = pick('success',     byRole('success'))
+  const warning     = pick('warning',     byRole('warning'))
+  const informative = pick('informative', byRole('informative'))
+  const discovery   = pick('discovery',   findDiscovery(classified, brandHue))
 
   const missingRoles: PaletteRole[] = []
   if (!discovery) missingRoles.push('discovery')

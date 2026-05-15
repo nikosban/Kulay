@@ -100,6 +100,29 @@ interface ProjectStore {
   saveNow: () => void
 }
 
+// Derive the most-used paletteId per role from an existing theme.
+// Used to preserve manual role assignments across Sync.
+function buildRoleOverrides(
+  theme: { groups: { tokens: { id: string; light?: { paletteId: string } | null; dark?: { paletteId: string } | null }[] }[] },
+  palettes: Palette[],
+): Partial<Record<string, string>> {
+  const roles = ['brand', 'neutral', 'danger', 'success', 'warning', 'informative', 'discovery'] as const
+  const overrides: Partial<Record<string, string>> = {}
+  for (const role of roles) {
+    const counts = new Map<string, number>()
+    for (const group of theme.groups) {
+      for (const token of group.tokens) {
+        if (!token.id.split('/').includes(role)) continue
+        if (token.light?.paletteId) counts.set(token.light.paletteId, (counts.get(token.light.paletteId) ?? 0) + 1)
+        if (token.dark?.paletteId)  counts.set(token.dark.paletteId,  (counts.get(token.dark.paletteId)  ?? 0) + 1)
+      }
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (top && palettes.some((p) => p.id === top)) overrides[role] = top
+  }
+  return overrides
+}
+
 function patchLibrary(libraryProjects: Project[], updated: Project): Project[] {
   return libraryProjects.map((p) => (p.id === updated.id ? updated : p))
 }
@@ -591,7 +614,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   suggestTokenTheme: () => {
     const { activeProject } = get()
     if (!activeProject) return
-    const { theme, missingRoles } = suggestTheme(activeProject.palettes)
+    // Preserve any manual role assignments the user has made
+    const overrides = activeProject.theme
+      ? buildRoleOverrides(activeProject.theme, activeProject.palettes)
+      : {}
+    const { theme, missingRoles } = suggestTheme(activeProject.palettes, overrides)
     const updated = { ...activeProject, theme, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, tokenMissingRoles: missingRoles, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
@@ -658,19 +685,26 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   assignRolePalette: (role: PaletteRole, paletteId: string) => {
     const { activeProject } = get()
     if (!activeProject?.theme) return
+    // Merge current role overrides with the new assignment, then re-suggest so
+    // any null slots get properly filled with the right step labels.
+    const overrides = {
+      ...buildRoleOverrides(activeProject.theme, activeProject.palettes),
+      [role]: paletteId,
+    }
+    const { theme: suggested, missingRoles } = suggestTheme(activeProject.palettes, overrides)
+    // Apply suggested tokens for this role; leave all other tokens untouched.
+    const suggestedMap = new Map(
+      suggested.groups.flatMap((g) => g.tokens).map((t) => [t.id, t]),
+    )
     const groups = activeProject.theme.groups.map((g) => ({
       ...g,
       tokens: g.tokens.map((t) => {
         if (!t.id.split('/').includes(role)) return t
-        return {
-          ...t,
-          light: t.light ? { paletteId, stepLabel: t.light.stepLabel } : null,
-          dark:  t.dark  ? { paletteId, stepLabel: t.dark.stepLabel }  : null,
-        }
+        return suggestedMap.get(t.id) ?? t
       }),
     }))
     const updated = { ...activeProject, theme: { ...activeProject.theme, groups }, updatedAt: Date.now() }
-    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+    set((s) => ({ activeProject: updated, isDirty: true, tokenMissingRoles: missingRoles, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
 
   clearTheme: () => {
