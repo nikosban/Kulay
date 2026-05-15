@@ -298,8 +298,8 @@ function RoleSelector({
               : null
 
             function handleChange(paletteId: string) {
-              if (!paletteId) return
-              onAssignRole(role, paletteId)
+              if (paletteId === '__generate__') onGenerateRole(role)
+              else if (paletteId) onAssignRole(role, paletteId)
             }
 
             return (
@@ -316,26 +316,17 @@ function RoleSelector({
                   {label}
                 </span>
 
-                {isMissing ? (
-                  <button
-                    onClick={() => onGenerateRole(role)}
-                    className="flex-1 text-left text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors flex items-center gap-1"
-                  >
-                    <IconAlertTriangle size={9} />
-                    Generate
-                  </button>
-                ) : (
-                  <select
-                    value={currentPaletteId ?? ''}
-                    onChange={(e) => handleChange(e.target.value)}
-                    className="flex-1 min-w-0 text-[10px] bg-transparent text-fg-muted dark:text-fg-muted-dark border border-bd-base dark:border-bd-base-dark rounded px-1 py-[1px] cursor-pointer appearance-none truncate"
-                  >
-                    <option value="">—</option>
-                    {palettes.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                )}
+                <select
+                  value={currentPaletteId ?? ''}
+                  onChange={(e) => handleChange(e.target.value)}
+                  className="flex-1 min-w-0 text-[10px] bg-transparent text-fg-muted dark:text-fg-muted-dark border border-bd-base dark:border-bd-base-dark rounded px-1 py-[1px] cursor-pointer appearance-none truncate"
+                >
+                  <option value="">—</option>
+                  {palettes.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                  <option value="__generate__">+ Generate new…</option>
+                </select>
               </div>
             )
           })}
