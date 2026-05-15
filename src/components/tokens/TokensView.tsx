@@ -35,13 +35,6 @@ export function TokensView() {
 
   const resolved = theme ? resolveTheme(theme, palettes, mode) : {}
 
-  const m = (l: string, d: string) => isDark ? d : l
-  const raisedBg  = resolved['surface/neutral/subtle']  ?? m('#ffffff', '#1c1c1c')
-  const border    = resolved['border/default']          ?? m('#e0e0e0', '#333333')
-  const textSec   = resolved['fg/muted']                ?? m('#555555', '#aaaaaa')
-  const brandSub  = resolved['surface/brand/subtle']    ?? m('#eff6ff', '#1e3a5f')
-  const brandText = resolved['fg/brand/base']           ?? m('#1d4ed8', '#93c5fd')
-
   if (!theme) {
     return (
       <div className="flex flex-1 items-center justify-center">
@@ -64,43 +57,32 @@ export function TokensView() {
       </div>
 
       {/* Right component navigator */}
-      <div style={{
-        width: navWidth, flexShrink: 0, position: 'relative',
-        backgroundColor: raisedBg, borderLeft: `1px solid ${border}`,
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
+      <div
+        className="bg-surface-base dark:bg-surface-base-dark border-l border-bd-base dark:border-bd-base-dark flex flex-col overflow-hidden flex-shrink-0 relative"
+        style={{ width: navWidth }}
+      >
         {/* Drag handle */}
         <div
           onMouseDown={startResize}
-          style={{
-            position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
-            cursor: 'col-resize', zIndex: 10,
-          }}
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize z-10"
         />
-        <div style={{ padding: '11px 12px 6px', fontSize: 9, fontWeight: 600, color: textSec, textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>
+        <div className="px-3 pt-3 pb-1.5 text-[9px] font-semibold text-fg-placeholder dark:text-fg-placeholder-dark uppercase tracking-widest flex-shrink-0">
           Components
         </div>
 
         {/* Overview */}
-        <div style={{ padding: '0 4px', flexShrink: 0 }}>
-          <NavItem
-            label="Overview"
-            active={selected === null}
-            onClick={() => setSelected(null)}
-            brandSub={brandSub} brandText={brandText} textSec={textSec}
-          />
+        <div className="px-1 flex-shrink-0">
+          <NavItem label="Overview" active={selected === null} onClick={() => setSelected(null)} />
         </div>
 
-        <div style={{ height: 1, backgroundColor: border, margin: '4px 8px', opacity: 0.5, flexShrink: 0 }} />
+        <div className="h-px bg-bd-base dark:bg-bd-base-dark mx-2 my-1 flex-shrink-0 opacity-60" />
 
         {/* Component list */}
-        <div className="flex flex-col overflow-y-auto flex-1" style={{ padding: '0 4px 8px' }}>
+        <div className="flex flex-col overflow-y-auto flex-1 px-1 pb-2">
           {COMPONENT_GROUPS.map((group, gi) => (
             <div key={group.label}>
-              {gi > 0 && (
-                <div style={{ height: 1, backgroundColor: border, margin: '4px 8px', opacity: 0.4 }} />
-              )}
-              <div style={{ padding: '6px 8px 2px', fontSize: 9, fontWeight: 600, color: textSec, textTransform: 'uppercase', letterSpacing: '0.08em', opacity: 0.6 }}>
+              {gi > 0 && <div className="h-px bg-bd-base dark:bg-bd-base-dark mx-2 my-1 opacity-40" />}
+              <div className="px-2 pt-1.5 pb-0.5 text-[9px] font-semibold text-fg-placeholder dark:text-fg-placeholder-dark uppercase tracking-widest opacity-70">
                 {group.label}
               </div>
               {group.items.map(({ id, label }) => (
@@ -109,7 +91,6 @@ export function TokensView() {
                   label={label}
                   active={selected === id}
                   onClick={() => setSelected(selected === id ? null : id)}
-                  brandSub={brandSub} brandText={brandText} textSec={textSec}
                 />
               ))}
             </div>
@@ -121,25 +102,18 @@ export function TokensView() {
   )
 }
 
-function NavItem({ label, active, onClick, brandSub, brandText, textSec }: {
+function NavItem({ label, active, onClick }: {
   label: string; active: boolean; onClick: () => void
-  brandSub: string; brandText: string; textSec: string
 }) {
-  const [hovered, setHovered] = useState(false)
   return (
     <button
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'block', width: '100%', textAlign: 'left',
-        padding: '6px 8px', borderRadius: 6, border: 'none', cursor: 'pointer',
-        fontSize: 12,
-        fontWeight: active ? 500 : 400,
-        backgroundColor: active ? brandSub : hovered ? `${brandSub}60` : 'transparent',
-        color: active ? brandText : textSec,
-        transition: 'background-color 0.1s',
-      }}
+      className={[
+        'w-full text-left px-2 py-1.5 rounded-md text-xs transition-colors',
+        active
+          ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark text-fg-base dark:text-fg-base-dark font-medium'
+          : 'text-fg-muted dark:text-fg-muted-dark hover:bg-surface-neutral-subtle-hover dark:hover:bg-surface-neutral-subtle-hover-dark',
+      ].join(' ')}
     >
       {label}
     </button>
