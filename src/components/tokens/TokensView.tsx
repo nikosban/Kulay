@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useProjectStore } from '../../store/useProjectStore'
 import { resolveTheme } from '../../lib/tokenResolve'
 import { TokenPreview } from './TokenPreview'
@@ -7,6 +7,26 @@ import { useTheme } from '../../contexts/ThemeContext'
 
 export function TokensView() {
   const [selected, setSelected] = useState<ComponentType | null>(null)
+  const [navWidth, setNavWidth] = useState(180)
+  const isResizing = useRef(false)
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizing.current = true
+    const startX = e.clientX
+    const startW = navWidth
+    function onMove(ev: MouseEvent) {
+      if (!isResizing.current) return
+      setNavWidth(Math.min(320, Math.max(140, startW + (startX - ev.clientX))))
+    }
+    function onUp() {
+      isResizing.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   const palettes = useProjectStore((s) => s.activeProject?.palettes ?? [])
   const theme    = useProjectStore((s) => s.activeProject?.theme ?? null)
@@ -45,10 +65,18 @@ export function TokensView() {
 
       {/* Right component navigator */}
       <div style={{
-        width: 152, flexShrink: 0,
+        width: navWidth, flexShrink: 0, position: 'relative',
         backgroundColor: raisedBg, borderLeft: `1px solid ${border}`,
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
+        {/* Drag handle */}
+        <div
+          onMouseDown={startResize}
+          style={{
+            position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
+            cursor: 'col-resize', zIndex: 10,
+          }}
+        />
         <div style={{ padding: '11px 12px 6px', fontSize: 9, fontWeight: 600, color: textSec, textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>
           Components
         </div>

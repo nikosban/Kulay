@@ -52,7 +52,7 @@ function TreeConnector({ isLast }: { isLast: boolean }) {
 
 // ── Step picker popover (portal) ──────────────────────────────────────────────
 
-function StepPicker({
+export function StepPicker({
   anchorRect,
   palettes,
   current,
@@ -77,13 +77,25 @@ function StepPicker({
     return () => document.removeEventListener('mousedown', onDown)
   }, [onClose])
 
-  const left = Math.min(anchorRect.left, window.innerWidth - 232)
-  const top  = anchorRect.bottom + 6
+  const POPUP_WIDTH  = 224
+  const POPUP_HEIGHT = 320 // generous estimate; real height may be less
+  const GAP = 6
+
+  const spaceBelow = window.innerHeight - anchorRect.bottom - GAP
+  const spaceAbove = anchorRect.top - GAP
+  const openAbove  = spaceBelow < POPUP_HEIGHT && spaceAbove > spaceBelow
+
+  const left    = Math.min(anchorRect.left, window.innerWidth - POPUP_WIDTH - 8)
+  const top     = openAbove ? undefined : anchorRect.bottom + GAP
+  const bottom  = openAbove ? window.innerHeight - anchorRect.top + GAP : undefined
+  const maxH    = openAbove
+    ? Math.min(spaceAbove, POPUP_HEIGHT)
+    : Math.min(spaceBelow, POPUP_HEIGHT)
 
   return createPortal(
     <div
       ref={ref}
-      style={{ position: 'fixed', top, left, zIndex: 9999, width: 224 }}
+      style={{ position: 'fixed', top, bottom, left, zIndex: 9999, width: POPUP_WIDTH, maxHeight: maxH, overflowY: 'auto' }}
       className="bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg shadow-lg p-2"
     >
       <div className="flex flex-col gap-2">

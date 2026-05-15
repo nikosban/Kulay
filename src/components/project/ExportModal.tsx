@@ -42,6 +42,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
   const [copyFormat, setCopyFormat] = useState<CopyFormat>('json')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const dialogRef = useRef<HTMLDivElement>(null)
   useFocusTrap(dialogRef, true)
 
@@ -54,6 +55,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
   async function handleExport() {
     if (!project) return
     setLoading(true)
+    setError(null)
     try {
       if (scope === 'project') {
         if (exportFormat === 'json')     exportProjectKulay(project)
@@ -65,6 +67,8 @@ export function ExportModal({ scope, palette, onClose }: Props) {
         if (exportFormat === 'svg')      exportPaletteSvg(palette)
       }
       onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Export failed')
     } finally {
       setLoading(false)
     }
@@ -94,6 +98,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
   async function handleCopy() {
     const text = buildCopyText()
     if (!text) return
+    setError(null)
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text)
@@ -111,8 +116,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      // Show the text in a selectable prompt as last resort
-      window.prompt('Copy failed — select all and copy manually:', text)
+      setError('Clipboard access denied. Try allowing clipboard permissions for this site.')
     }
   }
 
@@ -150,7 +154,7 @@ export function ExportModal({ scope, palette, onClose }: Props) {
           {(['export', 'copy'] as Tab[]).map((t) => (
             <button
               key={t}
-              onClick={() => setTab(t)}
+              onClick={() => { setTab(t); setError(null) }}
               className={[
                 'flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize',
                 tab === t
@@ -185,6 +189,11 @@ export function ExportModal({ scope, palette, onClose }: Props) {
                 />
               ))
           }
+
+          {/* Error message */}
+          {error && (
+            <p className="text-xs text-fg-danger dark:text-fg-danger-dark mt-1">{error}</p>
+          )}
 
           {/* Action button */}
           <button
