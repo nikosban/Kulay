@@ -1,13 +1,15 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import type { Project, Palette, PaletteStep, LightnessRange, LabelScale, PalettePreset } from '../types/project'
+import type { TokenRef } from '../types/tokens'
+import { suggestTheme, getTargetHueForRole, getBrandHueFromPalettes, type PaletteRole } from '../lib/tokenSuggest'
 import { DEFAULT_LABEL_SCALE, getActiveSteps } from '../types/project'
 import { createProject } from '../lib/projectFactory'
 import { saveProject, loadProject, deleteProject, listProjectIds, CorruptedProjectError } from '../lib/storage'
 import { sortPalettes } from '../lib/paletteSort'
-import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette, computeStepLabels, paletteGenOpts, validateBasePosition, type GenOpts } from '../lib/generatePalette'
+import { recalcContrast, regeneratePalette, autoUpdatePalette, generateDarkMode, generateModeSteps, normalizeTailwindLabels, relabelPalette, computeStepLabels, paletteGenOpts, validateBasePosition, generatePalette, type GenOpts } from '../lib/generatePalette'
 import { adjustStepForWcagTarget } from '../lib/wcagTarget'
-import { hexToOklch } from '../lib/color'
+import { hexToOklch, oklchToHex, clampToGamut } from '../lib/color'
 import { inferPaletteName } from '../lib/paletteName'
 import { contrastRatio } from '../lib/wcag'
 
@@ -47,6 +49,7 @@ interface ProjectStore {
   libraryProjects: Project[]
   activeProject: Project | null
   isDirty: boolean
+  tokenMissingRoles: PaletteRole[]
   lastSavedAt: number | null
   corruptedCount: number
   pendingDeletion: PendingDeletion | null
@@ -60,6 +63,7 @@ interface ProjectStore {
   removeProject: (id: string) => void
   updateProjectName: (name: string) => void
   addPalette: (palette: Palette) => void
+  reorderPalettes: (orderedIds: string[]) => void
   renamePalette: (paletteId: string, name: string) => void
   deletePalette: (paletteId: string) => void
   undoDeletePalette: () => void
@@ -81,6 +85,11 @@ interface ProjectStore {
   applyPalettePreset: (paletteId: string, preset: PalettePreset) => void
   updatePaletteEnvelopeExponent: (paletteId: string, value: number) => void
   updatePaletteLightnessDistribution: (paletteId: string, value: 'linear' | 'perceptual') => void
+  suggestTokenTheme: () => void
+  generateAndAddRolePalette: (role: PaletteRole) => void
+  assignToken: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => void
+  assignRolePalette: (role: PaletteRole, paletteId: string) => void
+  clearTheme: () => void
   setLabelScale: (scale: LabelScale) => void
   updateLightnessRange: (lRange: LightnessRange) => void
   updateEnvelopeExponent: (value: number) => void
@@ -89,6 +98,29 @@ interface ProjectStore {
   markDirty: () => void
   markSaved: (timestamp: number) => void
   saveNow: () => void
+}
+
+// Derive the most-used paletteId per role from an existing theme.
+// Used to preserve manual role assignments across Sync.
+function buildRoleOverrides(
+  theme: { groups: { tokens: { id: string; light?: { paletteId: string } | null; dark?: { paletteId: string } | null }[] }[] },
+  palettes: Palette[],
+): Partial<Record<string, string>> {
+  const roles = ['brand', 'neutral', 'danger', 'success', 'warning', 'informative', 'discovery'] as const
+  const overrides: Partial<Record<string, string>> = {}
+  for (const role of roles) {
+    const counts = new Map<string, number>()
+    for (const group of theme.groups) {
+      for (const token of group.tokens) {
+        if (!token.id.split('/').includes(role)) continue
+        if (token.light?.paletteId) counts.set(token.light.paletteId, (counts.get(token.light.paletteId) ?? 0) + 1)
+        if (token.dark?.paletteId)  counts.set(token.dark.paletteId,  (counts.get(token.dark.paletteId)  ?? 0) + 1)
+      }
+    }
+    const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    if (top && palettes.some((p) => p.id === top)) overrides[role] = top
+  }
+  return overrides
 }
 
 function patchLibrary(libraryProjects: Project[], updated: Project): Project[] {
@@ -115,6 +147,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   libraryProjects: [],
   activeProject: null,
   isDirty: false,
+  tokenMissingRoles: [],
   lastSavedAt: null,
   corruptedCount: 0,
   pendingDeletion: null,
@@ -197,6 +230,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const scale = activeProject.labelScale ?? DEFAULT_LABEL_SCALE
     const labeled = relabelPalette(palette, activeProject.lightnessRange, scale)
     const palettes = sortPalettes([...activeProject.palettes, labeled])
+    const updated = { ...activeProject, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  reorderPalettes: (orderedIds: string[]) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const map = new Map(activeProject.palettes.map((p) => [p.id, p]))
+    const palettes = orderedIds.flatMap((id) => (map.has(id) ? [map.get(id)!] : []))
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
@@ -566,6 +608,109 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const final: Palette = { ...manualPalette, modes: { light: lightSteps, dark: darkSteps } }
     const palettes = activeProject.palettes.map((p) => (p.id === paletteId ? final : p))
     const updated = { ...activeProject, palettes, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  suggestTokenTheme: () => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    // Preserve any manual role assignments the user has made
+    const overrides = activeProject.theme
+      ? buildRoleOverrides(activeProject.theme, activeProject.palettes)
+      : {}
+    const { theme, missingRoles } = suggestTheme(activeProject.palettes, overrides)
+    const updated = { ...activeProject, theme, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, tokenMissingRoles: missingRoles, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  generateAndAddRolePalette: (role: PaletteRole) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+
+    const brandHue = getBrandHueFromPalettes(activeProject.palettes)
+    const targetHue = getTargetHueForRole(role, brandHue)
+
+    let hex: string | null = null
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const L = 0.44 + Math.random() * 0.18
+      const C = 0.17 + Math.random() * 0.12
+      const H = targetHue + (Math.random() * 24 - 12)
+      const [cL, cC, cH] = clampToGamut(L, C, H)
+      const candidate = oklchToHex(cL, cC, cH)
+      if (validateBasePosition(candidate, activeProject.stepCount, activeProject.lightnessRange) === null) {
+        hex = candidate
+        break
+      }
+    }
+
+    if (!hex) {
+      toast.error(`Could not generate a valid ${role} palette. Try adjusting project lightness settings.`)
+      return
+    }
+
+    const name = role.charAt(0).toUpperCase() + role.slice(1)
+    const rawPalette = generatePalette(
+      hex,
+      activeProject.stepCount,
+      activeProject.backgrounds,
+      activeProject.palettes,
+      activeProject.lightnessRange,
+      projectGenOpts(activeProject),
+    )
+    const namedPalette = { ...rawPalette, name }
+    const scale = activeProject.labelScale ?? DEFAULT_LABEL_SCALE
+    const labeled = relabelPalette(namedPalette, activeProject.lightnessRange, scale)
+    const palettes = sortPalettes([...activeProject.palettes, labeled])
+    const { theme, missingRoles } = suggestTheme(palettes)
+    const updated = { ...activeProject, palettes, theme, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, tokenMissingRoles: missingRoles, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+    toast.success(`Generated "${name}" palette and synced tokens.`)
+  },
+
+  assignToken: (tokenId: string, mode: 'light' | 'dark', ref: TokenRef | null) => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const theme = activeProject.theme
+    if (!theme) return
+    const groups = theme.groups.map((g) => ({
+      ...g,
+      tokens: g.tokens.map((t) =>
+        t.id === tokenId ? { ...t, [mode]: ref } : t,
+      ),
+    }))
+    const updated = { ...activeProject, theme: { ...theme, groups }, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  assignRolePalette: (role: PaletteRole, paletteId: string) => {
+    const { activeProject } = get()
+    if (!activeProject?.theme) return
+    // Merge current role overrides with the new assignment, then re-suggest so
+    // any null slots get properly filled with the right step labels.
+    const overrides = {
+      ...buildRoleOverrides(activeProject.theme, activeProject.palettes),
+      [role]: paletteId,
+    }
+    const { theme: suggested, missingRoles } = suggestTheme(activeProject.palettes, overrides)
+    // Apply suggested tokens for this role; leave all other tokens untouched.
+    const suggestedMap = new Map(
+      suggested.groups.flatMap((g) => g.tokens).map((t) => [t.id, t]),
+    )
+    const groups = activeProject.theme.groups.map((g) => ({
+      ...g,
+      tokens: g.tokens.map((t) => {
+        if (!t.id.split('/').includes(role)) return t
+        return suggestedMap.get(t.id) ?? t
+      }),
+    }))
+    const updated = { ...activeProject, theme: { ...activeProject.theme, groups }, updatedAt: Date.now() }
+    set((s) => ({ activeProject: updated, isDirty: true, tokenMissingRoles: missingRoles, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
+  },
+
+  clearTheme: () => {
+    const { activeProject } = get()
+    if (!activeProject) return
+    const updated = { ...activeProject, theme: undefined, updatedAt: Date.now() }
     set((s) => ({ activeProject: updated, isDirty: true, libraryProjects: patchLibrary(s.libraryProjects, updated) }))
   },
 

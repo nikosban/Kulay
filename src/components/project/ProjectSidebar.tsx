@@ -1,11 +1,28 @@
 import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { IconPlus, IconTrash } from '@tabler/icons-react'
+import { IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useProjectStore } from '../../store/useProjectStore'
+import type { Palette } from '../../types/project'
 import { getActiveSteps } from '../../types/project'
 import { generatePalette, validateBasePosition } from '../../lib/generatePalette'
 import { oklchToHex, clampToGamut } from '../../lib/color'
 import { sanitizeHex } from '../../lib/hexInput'
+import { TokenEditor } from '../tokens/TokenEditor'
 
 const PALETTE_LIMIT = 10
 
@@ -24,19 +41,121 @@ function generateRandomHex(
   return null
 }
 
+function SortablePaletteRow({
+  palette,
+  isSelected,
+  onSelect,
+  onDelete,
+}: {
+  palette: Palette
+  isSelected: boolean
+  onSelect: () => void
+  onDelete: (e: React.MouseEvent) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: palette.id })
+  const steps = getActiveSteps(palette)
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}
+      onClick={onSelect}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelect() }}
+      className={`group flex items-center gap-1 px-2 py-2 cursor-pointer transition-colors ${
+        isSelected
+          ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark/80'
+          : 'hover:bg-surface-neutral-subtle-active/60 dark:hover:bg-surface-neutral-subtle-active-dark/40'
+      }`}
+    >
+      {/* Drag handle */}
+      <button
+        {...attributes}
+        {...listeners}
+        onClick={(e) => e.stopPropagation()}
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+        className="flex-shrink-0 w-4 flex items-center justify-center text-fg-placeholder dark:text-fg-placeholder-dark opacity-0 group-hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity touch-none"
+      >
+        <IconGripVertical size={12} stroke={1.75} />
+      </button>
+
+      <span className={`flex-1 min-w-0 truncate text-[12px] leading-none ${
+        isSelected
+          ? 'text-fg-base dark:text-fg-base-dark font-medium'
+          : 'text-fg-subtle dark:text-fg-subtle-dark'
+      }`}>
+        {palette.name}
+      </span>
+
+      <div className="flex items-center gap-[2px] flex-shrink-0">
+        {steps.map((step) => (
+          <div
+            key={step.label}
+            className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+            style={{ backgroundColor: step.hex }}
+          />
+        ))}
+      </div>
+
+      <div className="w-0 overflow-hidden group-hover:w-6 transition-[width] duration-150 ease-in flex-shrink-0">
+        <button
+          onClick={onDelete}
+          title="Delete palette"
+          className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark transition-colors"
+        >
+          <IconTrash size={12} stroke={1.75} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 interface Props {
   onBack: () => void
+  activeTab: 'colors' | 'tokens'
+  onTabChange: (tab: 'colors' | 'tokens') => void
   selectedPaletteId: string | null
   onSelectPalette: (id: string | null) => void
 }
 
-export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: Props) {
+export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPaletteId, onSelectPalette }: Props) {
   const activeProject = useProjectStore((s) => s.activeProject)
   const addPalette = useProjectStore((s) => s.addPalette)
+  const reorderPalettes = useProjectStore((s) => s.reorderPalettes)
   const deletePalette = useProjectStore((s) => s.deletePalette)
   const undoDeletePalette = useProjectStore((s) => s.undoDeletePalette)
   const projectName = useProjectStore((s) => s.activeProject?.name ?? '')
   const updateProjectName = useProjectStore((s) => s.updateProjectName)
+  const theme = useProjectStore((s) => s.activeProject?.theme ?? null)
+  const missingRoles = useProjectStore((s) => s.tokenMissingRoles)
+  const suggestTokenTheme = useProjectStore((s) => s.suggestTokenTheme)
+  const assignToken = useProjectStore((s) => s.assignToken)
+  const assignRolePalette = useProjectStore((s) => s.assignRolePalette)
+  const generateAndAddRolePalette = useProjectStore((s) => s.generateAndAddRolePalette)
+
+  const [sidebarWidth, setSidebarWidth] = useState(240)
+  const isResizing = useRef(false)
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    isResizing.current = true
+    const startX = e.clientX
+    const startW = sidebarWidth
+
+    function onMove(ev: MouseEvent) {
+      if (!isResizing.current) return
+      setSidebarWidth(Math.min(480, Math.max(180, startW + ev.clientX - startX)))
+    }
+    function onUp() {
+      isResizing.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
 
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
@@ -46,10 +165,21 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
   const [adderValue, setAdderValue] = useState('')
   const adderRef = useRef<HTMLInputElement>(null)
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
+
   if (!activeProject) return null
 
   const palettes = activeProject.palettes
   const atLimit = palettes.length >= PALETTE_LIMIT
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = palettes.findIndex((p) => p.id === active.id)
+    const newIndex = palettes.findIndex((p) => p.id === over.id)
+    const reordered = arrayMove(palettes, oldIndex, newIndex)
+    reorderPalettes(reordered.map((p) => p.id))
+  }
 
   function commitAdd(hex: string) {
     const result = sanitizeHex(hex)
@@ -118,7 +248,15 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
   }
 
   return (
-    <div className="w-[240px] flex-shrink-0 flex flex-col border-r border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark overflow-hidden">
+    <div
+      className="relative flex-shrink-0 flex flex-col border-r border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark overflow-hidden"
+      style={{ width: sidebarWidth }}
+    >
+      {/* Resize handle */}
+      <div
+        onMouseDown={startResize}
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize z-20 hover:bg-bd-strong/30 dark:hover:bg-bd-strong-dark/30 transition-colors"
+      />
 
       {/* ── Nav ── */}
       <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
@@ -153,13 +291,25 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
         )}
       </div>
 
-      {/* ── Colors ── */}
-      <div className="flex flex-col flex-1 overflow-hidden">
+      {/* ── Tab bar ── */}
+      <div className="flex border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
+        {(['colors', 'tokens'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => onTabChange(tab)}
+            className={`flex-1 py-2 text-[11px] font-medium capitalize transition-colors ${
+              activeTab === tab
+                ? 'text-fg-base dark:text-fg-base-dark border-b-2 border-fg-base dark:border-fg-base-dark -mb-px'
+                : 'text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-muted dark:hover:text-fg-muted-dark'
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-        {/* Section header */}
-        <div className="flex items-center px-3 py-2 border-b border-bd-base dark:border-bd-base-dark flex-shrink-0">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Colors</span>
-        </div>
+      {/* ── Colors ── */}
+      {activeTab === 'colors' && <div className="flex flex-col flex-1 overflow-hidden">
 
         <div className="flex-1 overflow-y-auto py-1">
 
@@ -190,52 +340,19 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             </p>
           )}
 
-          {palettes.map((palette) => {
-            const steps = getActiveSteps(palette)
-            const isSelected = palette.id === selectedPaletteId
-            return (
-              <div
-                key={palette.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onSelectPalette(palette.id)}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectPalette(palette.id) }}
-                className={`group flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                  isSelected
-                    ? 'bg-surface-neutral-subtle-active dark:bg-surface-neutral-subtle-active-dark/80'
-                    : 'hover:bg-surface-neutral-subtle-active/60 dark:hover:bg-surface-neutral-subtle-active-dark/40'
-                }`}
-              >
-                <span className={`flex-1 min-w-0 truncate text-[12px] leading-none ${
-                  isSelected
-                    ? 'text-fg-base dark:text-fg-base-dark font-medium'
-                    : 'text-fg-subtle dark:text-fg-subtle-dark'
-                }`}>
-                  {palette.name}
-                </span>
-
-                <div className="flex items-center gap-[2px] flex-shrink-0">
-                  {steps.map((step) => (
-                    <div
-                      key={step.label}
-                      className="w-[7px] h-[7px] rounded-full flex-shrink-0"
-                      style={{ backgroundColor: step.hex }}
-                    />
-                  ))}
-                </div>
-
-                <div className="w-0 overflow-hidden group-hover:w-6 transition-[width] duration-150 ease-in flex-shrink-0">
-                  <button
-                    onClick={(e) => handleDelete(e, palette.id, palette.name)}
-                    title="Delete palette"
-                    className="w-6 h-6 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark transition-colors"
-                  >
-                    <IconTrash size={12} stroke={1.75} />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={palettes.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+              {palettes.map((palette) => (
+                <SortablePaletteRow
+                  key={palette.id}
+                  palette={palette}
+                  isSelected={palette.id === selectedPaletteId}
+                  onSelect={() => onSelectPalette(palette.id)}
+                  onDelete={(e) => handleDelete(e, palette.id, palette.name)}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
 
           {/* Inline hex adder */}
           {showAdder && (
@@ -288,7 +405,20 @@ export function ProjectSidebar({ onBack, selectedPaletteId, onSelectPalette }: P
             </button>
           )}
         </div>
-      </div>
+      </div>}
+
+      {/* ── Tokens tab ── */}
+      {activeTab === 'tokens' && (
+        <TokenEditor
+          theme={theme}
+          palettes={palettes}
+          missingRoles={missingRoles}
+          onSuggest={suggestTokenTheme}
+          onAssign={(tokenId, mode, ref) => assignToken(tokenId, mode, ref)}
+          onAssignRole={(role, paletteId) => assignRolePalette(role, paletteId)}
+          onGenerateRole={(role) => generateAndAddRolePalette(role)}
+        />
+      )}
 
     </div>
   )
