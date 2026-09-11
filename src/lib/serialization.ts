@@ -26,11 +26,13 @@ function isValidProject(obj: unknown): obj is Project {
   )
 }
 
-function migrateStep(step: unknown): PaletteStep {
+function migrateStep(step: unknown, index: number, count: number): PaletteStep {
   const s = step as Record<string, unknown>
   const hex = typeof s.hex === 'string' ? s.hex : '#808080'
   const [l, c, h] = hexToOklch(hex)
   return {
+    id: typeof s.id === 'string' ? s.id : crypto.randomUUID(),
+    position: typeof s.position === 'number' ? s.position : index / Math.max(1, count - 1),
     label: typeof s.label === 'number' ? s.label : 0,
     hex,
     isBase: typeof s.isBase === 'boolean' ? s.isBase : false,
@@ -51,19 +53,30 @@ function migratePalette(raw: unknown): Palette {
 
   // Old format: palette has `steps` directly
   if (Array.isArray(p.steps) && !p.modes) {
+    const steps = p.steps as unknown[]
     return {
       id, name, baseHex, activeMode: 'light',
-      modes: { light: (p.steps as unknown[]).map(migrateStep), dark: null },
+      modes: { light: steps.map((step, index) => migrateStep(step, index, steps.length)), dark: null },
     }
   }
 
   // New format with `modes`
   const modes = p.modes as Record<string, unknown> | undefined
-  const lightSteps = Array.isArray(modes?.light) ? (modes!.light as unknown[]).map(migrateStep) : []
-  const darkSteps = Array.isArray(modes?.dark) ? (modes!.dark as unknown[]).map(migrateStep) : null
+  const rawLightSteps = Array.isArray(modes?.light) ? modes.light as unknown[] : []
+  const rawDarkSteps = Array.isArray(modes?.dark) ? modes.dark as unknown[] : null
+  const lightSteps = rawLightSteps.map((step, index) => migrateStep(step, index, rawLightSteps.length))
+  const darkSteps = rawDarkSteps?.map((step, index) => migrateStep(step, index, rawDarkSteps.length)) ?? null
 
   return {
     id, name, baseHex, activeMode,
+    preset: p.preset as Palette['preset'],
+    lightnessRange: p.lightnessRange as Palette['lightnessRange'],
+    envelopeExponent: typeof p.envelopeExponent === 'number' ? p.envelopeExponent : undefined,
+    lightChromaFalloff: typeof p.lightChromaFalloff === 'number' ? p.lightChromaFalloff : undefined,
+    darkChromaFalloff: typeof p.darkChromaFalloff === 'number' ? p.darkChromaFalloff : undefined,
+    lightHueShift: typeof p.lightHueShift === 'number' ? p.lightHueShift : undefined,
+    darkHueShift: typeof p.darkHueShift === 'number' ? p.darkHueShift : undefined,
+    lightnessDistribution: p.lightnessDistribution === 'perceptual' ? 'perceptual' : p.lightnessDistribution === 'linear' ? 'linear' : undefined,
     modes: { light: lightSteps, dark: darkSteps },
   }
 }

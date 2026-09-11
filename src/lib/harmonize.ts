@@ -1,4 +1,44 @@
-import { clampToGamut } from './color'
+import { clampToGamut, maxChromaInGamut } from './color'
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function smoothstep(min: number, max: number, value: number): number {
+  const t = clamp01((value - min) / (max - min))
+  return t * t * (3 - 2 * t)
+}
+
+function mix(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
+
+// Preserve light-end identity in two continuous ways:
+// - chromatic colors retain a share of the gamut they occupied at the base;
+// - tinted neutrals retain an absolute tint signal instead of fading to gray.
+// The blend avoids a hard neutral/chromatic mode boundary.
+function lightEndChromaFloor(
+  inputL: number,
+  inputC: number,
+  inputH: number,
+  stepL: number,
+  stepH: number,
+  progress: number,
+  lightFalloff: number,
+): number {
+  if (inputC < 0.008 || progress <= 0) return 0
+
+  const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
+  const baseCapacity = Math.max(0.0001, maxChromaInGamut(inputL, inputH))
+  const baseOccupancy = clamp01(inputC / baseCapacity)
+  const stepCapacity = maxChromaInGamut(stepL, stepH)
+  const tintRetention = Math.max(0.32, Math.min(0.76, 0.85 - 0.35 * lightFalloff))
+  const colorRetention = Math.max(0.48, Math.min(0.88, 0.98 - 0.30 * lightFalloff))
+
+  const tintFloor = inputC * mix(1, tintRetention, progress)
+  const chromaticFloor = stepCapacity * baseOccupancy * mix(1, colorRetention, progress)
+  return mix(chromaticFloor, tintFloor, neutralWeight)
+}
 
 function hueChromaMultiplier(H: number, stepFraction: number): number {
   // stepFraction: 0 = lightest, 1 = darkest (lightness axis, not step index)
@@ -76,7 +116,7 @@ function darkChromaBoost(H: number): number {
 
 // Find the highest L where this hue can sustain ~0.18 chroma, clamped to [0.82, 0.92].
 // Hues with wide gamut at high L (amber) return ~0.92; narrow-gamut hues (indigo) return lower.
-function maxDarkL(H: number): number {
+export function maxDarkL(H: number): number {
   for (let L = 0.92; L >= 0.82; L -= 0.01) {
     const [, cC] = clampToGamut(L, 0.18, H)
     if (cC >= 0.18 * 0.95) return L
@@ -86,13 +126,18 @@ function maxDarkL(H: number): number {
 
 // Chroma envelope anchored at base step, tapering toward extremes.
 // FLOOR of 0.07 lets extreme steps fade toward near-gray for a natural tint feel.
-function envelope(t: number, tBase: number, exponent = 0.75): number {
+function envelope(
+  t: number,
+  tBase: number,
+  beforeExponent = 0.75,
+  afterExponent = beforeExponent,
+): number {
   const FLOOR = 0.07
-  if (tBase <= 0) return t <= 0 ? 1 : Math.max(FLOOR, Math.pow(1 - t, exponent))
-  if (tBase >= 1) return t >= 1 ? 1 : Math.max(FLOOR, Math.pow(t, exponent))
+  if (tBase <= 0) return t <= 0 ? 1 : Math.max(FLOOR, Math.pow(1 - t, afterExponent))
+  if (tBase >= 1) return t >= 1 ? 1 : Math.max(FLOOR, Math.pow(t, beforeExponent))
   return t <= tBase
-    ? Math.max(FLOOR, Math.pow(t / tBase, exponent))
-    : Math.max(FLOOR, Math.pow((1 - t) / (1 - tBase), exponent))
+    ? Math.max(FLOOR, Math.pow(t / tBase, beforeExponent))
+    : Math.max(FLOOR, Math.pow((1 - t) / (1 - tBase), afterExponent))
 }
 
 export interface HarmonizedStep {
@@ -103,7 +148,29 @@ export interface HarmonizedStep {
 
 export interface HarmonizeOpts {
   envelopeExponent?: number
+  lightChromaFalloff?: number
+  darkChromaFalloff?: number
+  lightHueShift?: number
+  darkHueShift?: number
   lightnessDistribution?: 'linear' | 'perceptual'
+}
+
+export function computeLightnesses(
+  stepCount: number,
+  mode: 'light' | 'dark',
+  lRange: { lightest: number; darkest: number },
+  hue: number,
+  distribution: 'linear' | 'perceptual' = 'linear',
+): number[] {
+  const start = mode === 'dark' ? lRange.darkest : lRange.lightest
+  const end = mode === 'dark' ? maxDarkL(hue) : lRange.darkest
+  return Array.from({ length: stepCount }, (_, i) => {
+    const raw = i / (stepCount - 1)
+    const t = distribution === 'perceptual'
+      ? (raw < 0.5 ? 2 * raw * raw : 1 - Math.pow(-2 * raw + 2, 2) / 2)
+      : raw
+    return start + t * (end - start)
+  })
 }
 
 export function harmonize(
@@ -116,22 +183,24 @@ export function harmonize(
   opts: HarmonizeOpts = {},
 ): HarmonizedStep[] {
   const exponent = opts.envelopeExponent ?? 0.75
+  const lightFalloff = opts.lightChromaFalloff ?? exponent
+  const darkFalloff = opts.darkChromaFalloff ?? exponent
+  const beforeFalloff = mode === 'dark' ? darkFalloff : lightFalloff
+  const afterFalloff = mode === 'dark' ? lightFalloff : darkFalloff
 
   // Light: step 0 = lightest, step n-1 = darkest
   // Dark:  step 0 = darkest,  step n-1 = lightest (ceiling adaptive per hue for gamut fit)
-  const L_START = mode === 'dark' ? lRange.darkest : lRange.lightest
-  const L_END   = mode === 'dark' ? maxDarkL(inputH) : lRange.darkest
   // Boost chroma for dark backgrounds — per-hue so warm colors get more, blues/cyans less
   const chromaBoost = mode === 'dark' ? darkChromaBoost(inputH) : 1.0
   const n = stepCount
 
-  const lightnesses = Array.from({ length: n }, (_, i) => {
-    const tRaw = i / (n - 1)
-    const t = opts.lightnessDistribution === 'perceptual'
-      ? (tRaw < 0.5 ? 2 * tRaw * tRaw : 1 - Math.pow(-2 * tRaw + 2, 2) / 2)
-      : tRaw
-    return L_START + t * (L_END - L_START)
-  })
+  const lightnesses = computeLightnesses(
+    n,
+    mode,
+    lRange,
+    inputH,
+    opts.lightnessDistribution ?? 'linear',
+  )
 
   let baseIndex = 0
   let minDiff = Infinity
@@ -144,35 +213,59 @@ export function harmonize(
   }
   const tBase = baseIndex / (n - 1)
 
-  const isNeutral = inputC < 0.04
-
   const steps: HarmonizedStep[] = lightnesses.map((L, i) => {
     const t = i / (n - 1)
-
-    if (isNeutral) {
-      // Derive a faint temperature tint from the input hue, fading at extremes
-      let tintC = 0
-      if ((inputH >= 0 && inputH <= 60) || (inputH >= 320 && inputH <= 360)) {
-        tintC = 0.012 // warm tint
-      } else if (inputH >= 180 && inputH <= 280) {
-        tintC = 0.010 // cool tint
-      }
-      return { L, C: tintC * envelope(t, tBase), H: inputH }
-    }
-
-    // Use exact input L at the base step so the envelope math stays consistent
-    const stepL = i === baseIndex ? inputL : L
 
     // stepFraction for hue multiplier: 0 = lightest, 1 = darkest (independent of mode)
     const stepFraction = mode === 'dark' ? 1 - t : t
 
-    const raw = envelope(t, tBase, exponent) * hueChromaMultiplier(inputH, stepFraction)
-    const envelopeAtBase = envelope(tBase, tBase, exponent) * hueChromaMultiplier(inputH, mode === 'dark' ? 1 - tBase : tBase)
+    // Near-neutrals retain their actual tint instead of crossing a threshold
+    // into a separate hard-coded color model.
+    const multiplier = inputC < 0.04 ? 1 : hueChromaMultiplier(inputH, stepFraction)
+    const baseMultiplier = inputC < 0.04
+      ? 1
+      : hueChromaMultiplier(inputH, mode === 'dark' ? 1 - tBase : tBase)
+    const raw = envelope(t, tBase, beforeFalloff, afterFalloff) * multiplier
+    const envelopeAtBase = envelope(tBase, tBase, beforeFalloff, afterFalloff) * baseMultiplier
     const scale = envelopeAtBase > 0 ? (inputC * chromaBoost) / envelopeAtBase : 0
     const C = Math.max(0, raw * scale)
-    const H = inputH + hueShift(inputH, stepFraction)
+    const baseFraction = mode === 'dark' ? 1 - tBase : tBase
+    const customHueShift = stepFraction <= baseFraction
+      ? (opts.lightHueShift ?? 0) * (baseFraction <= 0 ? 0 : (baseFraction - stepFraction) / baseFraction)
+      : (opts.darkHueShift ?? 0) * (baseFraction >= 1 ? 0 : (stepFraction - baseFraction) / (1 - baseFraction))
+    const automaticHueShift = inputC < 0.04 ? 0 : hueShift(inputH, stepFraction)
+    const H = inputH + automaticHueShift + customHueShift
 
-    return { L: stepL, C, H }
+    // Use exact input L at the base step. At the very light end, move inward by
+    // at most 0.04 only when a tinted neutral's identity cannot fit in sRGB.
+    const lightProgress = stepFraction < baseFraction && baseFraction > 0
+      ? (baseFraction - stepFraction) / baseFraction
+      : 0
+    let stepL = i === baseIndex ? inputL : L
+    if (lightProgress > 0.8 && inputC >= 0.008) {
+      const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
+      const retention = Math.max(0.32, Math.min(0.76, 0.85 - 0.35 * lightFalloff))
+      const requiredTint = inputC * mix(1, retention, lightProgress) * neutralWeight
+      const maxShift = 0.04 * smoothstep(0.8, 1, lightProgress)
+      for (let shift = 0; shift <= maxShift + 1e-9; shift += 0.001) {
+        const candidateL = Math.max(inputL, L - shift)
+        stepL = candidateL
+        if (maxChromaInGamut(candidateL, H) >= requiredTint) break
+      }
+    }
+
+    const identityFloor = lightEndChromaFloor(
+      inputL,
+      inputC,
+      inputH,
+      stepL,
+      H,
+      lightProgress,
+      lightFalloff,
+    )
+    const retainedC = Math.max(C, identityFloor)
+
+    return { L: stepL, C: retainedC, H }
   })
 
   return steps

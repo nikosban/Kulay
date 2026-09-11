@@ -47,7 +47,7 @@ function stepNearest(palette: Palette, targetL: number, mode: 'light' | 'dark'):
     const diff = Math.abs(l - targetL)
     if (diff < bestDiff) { bestDiff = diff; best = s }
   }
-  return { paletteId: palette.id, stepLabel: best.label }
+  return { paletteId: palette.id, stepId: best.id, stepLabel: best.label }
 }
 
 function stepHex(palette: Palette, targetL: number, mode: 'light' | 'dark'): string {
@@ -81,9 +81,9 @@ function stepContrast(
   for (const step of sorted) {
     const ratio = contrastRatio(step.hex, bgHex)
     if (ratio > bestRatio) { bestRatio = ratio; bestStep = step }
-    if (ratio >= minContrast) return { paletteId: palette.id, stepLabel: step.label }
+    if (ratio >= minContrast) return { paletteId: palette.id, stepId: step.id, stepLabel: step.label }
   }
-  return { paletteId: palette.id, stepLabel: bestStep.label }
+  return { paletteId: palette.id, stepId: bestStep.id, stepLabel: bestStep.label }
 }
 
 function ref(p: Palette | null, l: number, mode: 'light' | 'dark'): TokenRef | null {
@@ -96,8 +96,8 @@ function onSurface(neutral: Palette, bgHex: string, mode: 'light' | 'dark'): Tok
   const lightest = steps[0]!
   const darkest  = steps[steps.length - 1]!
   return contrastRatio(lightest.hex, bgHex) >= contrastRatio(darkest.hex, bgHex)
-    ? { paletteId: neutral.id, stepLabel: lightest.label }
-    : { paletteId: neutral.id, stepLabel: darkest.label }
+    ? { paletteId: neutral.id, stepId: lightest.id, stepLabel: lightest.label }
+    : { paletteId: neutral.id, stepId: darkest.id, stepLabel: darkest.label }
 }
 
 // ── Role hue targets ─────────────────────────────────────────────────────────
@@ -302,8 +302,8 @@ export function suggestTheme(
       dark:  ref(neutral, 0.40, 'dark'),
     },
     'fg/on-brand': {
-      light: (() => { const h = stepHex(brand, 0.50, 'light'); return { paletteId: neutral.id, stepLabel: onSurface(neutral, h, 'light').stepLabel } })(),
-      dark:  (() => { const h = stepHex(brand, 0.68, 'dark');  return { paletteId: neutral.id, stepLabel: onSurface(neutral, h, 'dark').stepLabel }  })(),
+      light: (() => { const h = stepHex(brand, 0.50, 'light'); return onSurface(neutral, h, 'light') })(),
+      dark:  (() => { const h = stepHex(brand, 0.68, 'dark');  return onSurface(neutral, h, 'dark') })(),
     },
 
     // ── Foreground (semantic utility) ────────────────────────────────────────

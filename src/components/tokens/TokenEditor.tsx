@@ -108,12 +108,13 @@ export function StepPicker({
               </span>
               <div className="flex gap-[3px] flex-wrap">
                 {steps.map((step) => {
-                  const isActive = current?.paletteId === palette.id && current?.stepLabel === step.label
+                  const isActive = current?.paletteId === palette.id
+                    && (current?.stepId ? current.stepId === step.id : current?.stepLabel === step.label)
                   return (
                     <button
                       key={step.label}
                       title={`${palette.name} ${step.label} — ${step.hex}`}
-                      onClick={() => { onSelect({ paletteId: palette.id, stepLabel: step.label }); onClose() }}
+                      onClick={() => { onSelect({ paletteId: palette.id, stepId: step.id, stepLabel: step.label }); onClose() }}
                       className={`w-5 h-5 rounded flex-shrink-0 transition-transform hover:scale-110 ${isActive ? 'ring-2 ring-offset-1 ring-fg-base dark:ring-fg-base-dark' : ''}`}
                       style={{ backgroundColor: step.hex }}
                     />

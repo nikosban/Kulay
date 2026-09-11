@@ -16,7 +16,7 @@ export function getTailwindConflicts(palettes: Palette[]): string[] {
 
 function paletteToColorObj(palette: Palette): string {
   const lines = getActiveSteps(palette).map((s) => `          ${s.label}: "${s.hex}",`)
-  return `        ${palette.name.toLowerCase()}: {\n${lines.join('\n')}\n        },`
+  return `        ${JSON.stringify(palette.name.toLowerCase())}: {\n${lines.join('\n')}\n        },`
 }
 
 function buildTailwindJs(palettes: Palette[]): string {

@@ -1,5 +1,6 @@
 export interface TokenRef {
   paletteId: string
+  stepId?: string
   stepLabel: number
 }
 

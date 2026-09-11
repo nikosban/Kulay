@@ -17,29 +17,15 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useProjectStore } from '../../store/useProjectStore'
+import { useTheme } from '../../contexts/ThemeContext'
 import type { Palette } from '../../types/project'
 import { getActiveSteps } from '../../types/project'
-import { generatePalette, validateBasePosition } from '../../lib/generatePalette'
-import { oklchToHex, clampToGamut } from '../../lib/color'
+import { generatePaletteForMode, validateBasePosition, type GenOpts } from '../../lib/generatePalette'
+import { generateDiverseColor } from '../../lib/randomColor'
 import { sanitizeHex } from '../../lib/hexInput'
 import { TokenEditor } from '../tokens/TokenEditor'
 
 const PALETTE_LIMIT = 10
-
-function generateRandomHex(
-  stepCount: number,
-  lightnessRange: { lightest: number; darkest: number },
-): string | null {
-  for (let i = 0; i < 30; i++) {
-    const H = Math.random() * 360
-    const C = 0.16 + Math.random() * 0.18
-    const L = 0.44 + Math.random() * 0.22
-    const [cL, cC, cH] = clampToGamut(L, C, H)
-    const hex = oklchToHex(cL, cC, cH)
-    if (validateBasePosition(hex, stepCount, lightnessRange) === null) return hex
-  }
-  return null
-}
 
 function SortablePaletteRow({
   palette,
@@ -121,6 +107,7 @@ interface Props {
 }
 
 export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPaletteId, onSelectPalette }: Props) {
+  const { isDark } = useTheme()
   const activeProject = useProjectStore((s) => s.activeProject)
   const addPalette = useProjectStore((s) => s.addPalette)
   const reorderPalettes = useProjectStore((s) => s.reorderPalettes)
@@ -185,19 +172,22 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
     const result = sanitizeHex(hex)
     if (!result) { toast.error('Enter a valid hex color.'); return }
     if (result.alphaStripped) toast.info('Alpha value removed. Kulay works with solid colors only.')
-    const err = validateBasePosition(result.hex, activeProject!.stepCount, activeProject!.lightnessRange)
+    const opts: GenOpts = {
+      envelopeExponent: activeProject!.envelopeExponent,
+      lightnessDistribution: activeProject!.lightnessDistribution,
+    }
+    const mode = isDark ? 'dark' : 'light'
+    const err = validateBasePosition(result.hex, activeProject!.stepCount, activeProject!.lightnessRange, opts, mode)
     if (err === 'too-light') { toast.error('Color is too light for this scale.'); return }
     if (err === 'too-dark')  { toast.error('Color is too dark for this scale.'); return }
-    const palette = generatePalette(
+    const palette = generatePaletteForMode(
       result.hex,
       activeProject!.stepCount,
       activeProject!.backgrounds,
       activeProject!.palettes,
+      mode,
       activeProject!.lightnessRange,
-      {
-        envelopeExponent: activeProject!.envelopeExponent,
-        lightnessDistribution: activeProject!.lightnessDistribution,
-      },
+      opts,
     )
     addPalette(palette)
     onSelectPalette(palette.id)
@@ -207,7 +197,17 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
 
   function handleRandom() {
     if (atLimit) return
-    const hex = generateRandomHex(activeProject!.stepCount, activeProject!.lightnessRange)
+    const opts: GenOpts = {
+      envelopeExponent: activeProject!.envelopeExponent,
+      lightnessDistribution: activeProject!.lightnessDistribution,
+    }
+    const hex = generateDiverseColor({
+      existingHexes: activeProject!.palettes.map((palette) => palette.baseHex),
+      stepCount: activeProject!.stepCount,
+      lightnessRange: activeProject!.lightnessRange,
+      genOpts: opts,
+      mode: isDark ? 'dark' : 'light',
+    })
     if (!hex) { toast.error('Could not generate a valid random color. Try again.'); return }
     commitAdd(hex)
   }
@@ -358,16 +358,20 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
           {showAdder && (
             <div className="px-2 py-1.5">
               <div className="flex items-center gap-1 rounded-md border border-bd-strong dark:border-bd-strong-dark bg-surface-base dark:bg-surface-base-dark px-2 h-8">
+                <label
+                  className="relative w-4 h-4 rounded-sm flex-shrink-0 overflow-hidden border border-bd-base dark:border-bd-base-dark cursor-pointer"
+                  style={{ backgroundColor: sanitizeHex(adderValue)?.hex ?? '#808080' }}
+                  title="Choose a color"
+                >
+                  <input
+                    type="color"
+                    value={sanitizeHex(adderValue)?.hex ?? '#808080'}
+                    onChange={(e) => commitAdd(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    aria-label="Choose a color"
+                  />
+                </label>
                 <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark select-none">#</span>
-                {(() => {
-                  const preview = sanitizeHex(adderValue)
-                  return preview ? (
-                    <div
-                      className="w-3 h-3 rounded-sm flex-shrink-0 border border-bd-base dark:border-bd-base-dark"
-                      style={{ backgroundColor: preview.hex }}
-                    />
-                  ) : null
-                })()}
                 <input
                   ref={adderRef}
                   type="text"
