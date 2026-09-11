@@ -1,12 +1,16 @@
 import type { Palette, PaletteStep, LightnessRange, LabelScale, Project } from '../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS } from '../types/project'
 import { hexToOklch, clampToGamut, oklchToHex } from './color'
-import { harmonize } from './harmonize'
+import { computeLightnesses, harmonize } from './harmonize'
 import { contrastRatio } from './wcag'
 import { inferPaletteName } from './paletteName'
 
 export interface GenOpts {
   envelopeExponent?: number
+  lightChromaFalloff?: number
+  darkChromaFalloff?: number
+  lightHueShift?: number
+  darkHueShift?: number
   lightnessDistribution?: 'linear' | 'perceptual'
 }
 
@@ -16,11 +20,25 @@ export function paletteGenOpts(palette: Palette, project: Project): { opts: GenO
   const preset = palette.preset ?? DEFAULT_PRESET
   if (preset !== 'manual') {
     const cfg = PALETTE_PRESETS[preset]
-    return { opts: { envelopeExponent: cfg.envelopeExponent, lightnessDistribution: cfg.lightnessDistribution }, lRange: cfg.lightnessRange }
+    return {
+      opts: {
+        envelopeExponent: cfg.envelopeExponent,
+        lightChromaFalloff: palette.lightChromaFalloff ?? cfg.envelopeExponent,
+        darkChromaFalloff: palette.darkChromaFalloff ?? cfg.envelopeExponent,
+        lightHueShift: palette.lightHueShift ?? 0,
+        darkHueShift: palette.darkHueShift ?? 0,
+        lightnessDistribution: cfg.lightnessDistribution,
+      },
+      lRange: cfg.lightnessRange,
+    }
   }
   return {
     opts: {
       envelopeExponent: palette.envelopeExponent ?? project.envelopeExponent ?? 0.75,
+      lightChromaFalloff: palette.lightChromaFalloff ?? palette.envelopeExponent ?? project.envelopeExponent ?? 0.75,
+      darkChromaFalloff: palette.darkChromaFalloff ?? palette.envelopeExponent ?? project.envelopeExponent ?? 0.75,
+      lightHueShift: palette.lightHueShift ?? 0,
+      darkHueShift: palette.darkHueShift ?? 0,
       lightnessDistribution: palette.lightnessDistribution ?? project.lightnessDistribution ?? 'linear',
     },
     lRange: palette.lightnessRange ?? project.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE,
@@ -42,11 +60,17 @@ export function findBaseIndex(
   stepCount: number,
   mode: 'light' | 'dark' = 'light',
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  inputH = 0,
+  opts: GenOpts = {},
 ): number {
   const n = stepColorCount(stepCount)
-  const L_START = mode === 'dark' ? lRange.darkest : lRange.lightest
-  const L_END   = mode === 'dark' ? 0.85 : lRange.darkest
-  const lightnesses = Array.from({ length: n }, (_, i) => L_START + (i / (n - 1)) * (L_END - L_START))
+  const lightnesses = computeLightnesses(
+    n,
+    mode,
+    lRange,
+    inputH,
+    opts.lightnessDistribution ?? 'linear',
+  )
   let baseIndex = 0
   let minDiff = Infinity
   for (let i = 0; i < n; i++) {
@@ -63,12 +87,14 @@ export function validateBasePosition(
   inputHex: string,
   stepCount: number,
   lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
+  mode: 'light' | 'dark' = 'light',
 ): GenerateError | null {
-  const [L] = hexToOklch(inputHex)
-  const baseIndex = findBaseIndex(L, stepCount, 'light', lRange)
+  const [L, , H] = hexToOklch(inputHex)
+  const baseIndex = findBaseIndex(L, stepCount, mode, lRange, H, opts)
   const n = stepColorCount(stepCount)
-  if (baseIndex === 0) return 'too-light'
-  if (baseIndex === n - 1) return 'too-dark'
+  if (baseIndex === 0) return mode === 'light' ? 'too-light' : 'too-dark'
+  if (baseIndex === n - 1) return mode === 'light' ? 'too-dark' : 'too-light'
   return null
 }
 
@@ -78,9 +104,13 @@ function makeStep(
   isBase: boolean,
   locked: boolean,
   backgrounds: { light: string; dark: string },
+  position: number,
+  id: string = crypto.randomUUID(),
 ): PaletteStep {
   const [l, c, h] = hexToOklch(hex)
   return {
+    id,
+    position,
     label,
     hex,
     isBase,
@@ -104,13 +134,20 @@ export function generateModeSteps(
   const n = stepColorCount(stepCount)
   const [inputL, inputC, inputH] = hexToOklch(inputHex)
   const harmonizedSteps = harmonize(inputL, inputC, inputH, n, mode, lRange, opts)
-  const baseIndex = findBaseIndex(inputL, stepCount, mode, lRange)
+  const baseIndex = findBaseIndex(inputL, stepCount, mode, lRange, inputH, opts)
   const stepLabels = computeStepLabels(n)
 
   return harmonizedSteps.map((hs, i) => {
     const [L, C, H] = clampToGamut(hs.L, hs.C, hs.H)
     const hex = i === baseIndex ? inputHex : oklchToHex(L, C, H)
-    return makeStep(hex, stepLabels[i] ?? Math.round((i * 100) / (n - 1)), i === baseIndex, false, backgrounds)
+    return makeStep(
+      hex,
+      stepLabels[i] ?? Math.round((i * 100) / (n - 1)),
+      i === baseIndex,
+      false,
+      backgrounds,
+      i / (n - 1),
+    )
   })
 }
 
@@ -130,6 +167,14 @@ export function generatePalette(
     id: crypto.randomUUID(),
     name,
     baseHex: inputHex,
+    preset: 'manual',
+    lightnessRange: { ...lRange },
+    envelopeExponent: opts.envelopeExponent ?? 0.75,
+    lightChromaFalloff: opts.lightChromaFalloff ?? opts.envelopeExponent ?? 0.75,
+    darkChromaFalloff: opts.darkChromaFalloff ?? opts.envelopeExponent ?? 0.75,
+    lightHueShift: opts.lightHueShift ?? 0,
+    darkHueShift: opts.darkHueShift ?? 0,
+    lightnessDistribution: opts.lightnessDistribution ?? 'linear',
     activeMode: 'light',
     modes: { light: lightSteps, dark: null },
   }
@@ -146,6 +191,24 @@ export function generateDarkMode(
   return { ...palette, modes: { ...palette.modes, dark: darkSteps } }
 }
 
+export function generatePaletteForMode(
+  inputHex: string,
+  stepCount: number,
+  backgrounds: { light: string; dark: string },
+  existingPalettes: Palette[],
+  mode: 'light' | 'dark',
+  lRange: LightnessRange = DEFAULT_LIGHTNESS_RANGE,
+  opts: GenOpts = {},
+): Palette {
+  const palette = generatePalette(inputHex, stepCount, backgrounds, existingPalettes, lRange, opts)
+  if (mode === 'light') return palette
+
+  return {
+    ...generateDarkMode(palette, backgrounds, lRange, opts),
+    activeMode: 'dark',
+  }
+}
+
 export function regeneratePalette(
   palette: Palette,
   stepCount: number,
@@ -155,21 +218,24 @@ export function regeneratePalette(
 ): Palette {
   const n = stepColorCount(stepCount)
   const newLabels = computeStepLabels(n)
-  const snapThreshold = 500 / (n - 1)
 
   function remapMode(currentSteps: PaletteStep[], mode: 'light' | 'dark'): PaletteStep[] {
     // isBase steps are placed by generateModeSteps at the correct new position;
     // snapping them separately would create a duplicate at two indices.
     const lockedSteps = currentSteps.filter((s) => s.locked && !s.isBase)
 
-    // Build candidates sorted by distance for one-to-one greedy matching
+    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange, opts)
+    const baseIndex = freshSteps.findIndex((step) => step.isBase)
+
+    // Build candidates sorted by distance for one-to-one greedy matching. The
+    // generated base is reserved: an old anchor must never replace it.
     const candidates: Array<{ dist: number; newIdx: number; locked: PaletteStep }> = []
     for (const locked of lockedSteps) {
       for (let i = 0; i < n; i++) {
-        const dist = Math.abs(locked.label - newLabels[i]!)
-        if (dist <= snapThreshold) {
-          candidates.push({ dist, newIdx: i, locked })
-        }
+        if (i === baseIndex) continue
+        const oldPosition = locked.position ?? currentSteps.indexOf(locked) / Math.max(1, currentSteps.length - 1)
+        const dist = Math.abs(oldPosition - i / (n - 1))
+        candidates.push({ dist, newIdx: i, locked })
       }
     }
     candidates.sort((a, b) => a.dist - b.dist)
@@ -186,13 +252,123 @@ export function regeneratePalette(
       }
     }
 
-    const freshSteps = generateModeSteps(palette.baseHex, stepCount, backgrounds, mode, lRange, opts)
-    return freshSteps.map((freshStep, i) => {
+    // Drop anchors whose lightness conflicts with their position relative to
+    // the exact base. Such anchors cannot coexist with a monotonic ramp.
+    const direction = mode === 'dark' ? 1 : -1
+    const baseL = freshSteps[baseIndex]!.oklch.l
+    const minGap = 0.001
+    const compatible = new Map<number, PaletteStep>()
+    let boundaryIndex = baseIndex
+    let boundaryL = baseL
+    for (const [index, locked] of [...assignments.entries()].filter(([index]) => index < baseIndex).sort((a, b) => b[0] - a[0])) {
+      const [l] = hexToOklch(locked.hex)
+      const followsBase = direction * (boundaryL - l) > minGap * (boundaryIndex - index)
+      const followsEndpoint = direction * (l - freshSteps[0]!.oklch.l) > minGap * index
+      if (followsBase && followsEndpoint) {
+        compatible.set(index, locked)
+        boundaryIndex = index
+        boundaryL = l
+      }
+    }
+    boundaryIndex = baseIndex
+    boundaryL = baseL
+    for (const [index, locked] of [...assignments.entries()].filter(([index]) => index > baseIndex).sort((a, b) => a[0] - b[0])) {
+      const [l] = hexToOklch(locked.hex)
+      const followsBase = direction * (l - boundaryL) > minGap * (index - boundaryIndex)
+      const followsEndpoint = direction * (freshSteps[n - 1]!.oklch.l - l) > minGap * (n - 1 - index)
+      if (followsBase && followsEndpoint) {
+        compatible.set(index, locked)
+        boundaryIndex = index
+        boundaryL = l
+      }
+    }
+    assignments.clear()
+    for (const [index, locked] of compatible) assignments.set(index, locked)
+
+    const knotMap = new Map<number, { index: number; freshL: number; targetL: number; dc: number; dh: number }>()
+    const zeroKnot = (index: number) => {
+      const fresh = freshSteps[index]!
+      knotMap.set(index, { index, freshL: fresh.oklch.l, targetL: fresh.oklch.l, dc: 0, dh: 0 })
+    }
+    zeroKnot(0)
+    zeroKnot(n - 1)
+    for (const [index, locked] of assignments) {
+      const fresh = freshSteps[index]!
+      const [l, c, h] = hexToOklch(locked.hex)
+      let dh = h - fresh.oklch.h
+      if (dh > 180) dh -= 360
+      if (dh < -180) dh += 360
+      knotMap.set(index, { index, freshL: fresh.oklch.l, targetL: l, dc: c - fresh.oklch.c, dh })
+    }
+    // The base is an immutable zero-correction knot, even when an old locked
+    // step previously occupied the same normalized position.
+    zeroKnot(baseIndex)
+    const correctionKnots = [...knotMap.values()].sort((a, b) => a.index - b.index)
+
+    function correctedStep(step: PaletteStep, index: number): PaletteStep {
+      if (step.isBase) return step
+      if (assignments.has(index)) return step
+      let left = correctionKnots[0]!
+      let right = correctionKnots[correctionKnots.length - 1]!
+      for (const knot of correctionKnots) {
+        if (knot.index <= index) left = knot
+        if (knot.index >= index) { right = knot; break }
+      }
+      const span = Math.max(1, right.index - left.index)
+      const t = (index - left.index) / span
+      const mix = (a: number, b: number) => a + (b - a) * t
+      const freshLSpan = right.freshL - left.freshL
+      const lightnessT = Math.abs(freshLSpan) < 1e-9
+        ? t
+        : (step.oklch.l - left.freshL) / freshLSpan
+      const [l, c, h] = clampToGamut(
+        left.targetL + lightnessT * (right.targetL - left.targetL),
+        Math.max(0, step.oklch.c + mix(left.dc, right.dc)),
+        (step.oklch.h + mix(left.dh, right.dh) + 360) % 360,
+      )
+      return makeStep(
+        oklchToHex(l, c, h),
+        step.label,
+        step.isBase,
+        false,
+        backgrounds,
+        step.position,
+        step.id,
+      )
+    }
+    const curvedSteps = freshSteps.map(correctedStep)
+    const preservedIds = new Map<number, string>()
+    const usedOldIds = new Set([...assignments.values()].map((step) => step.id))
+    const usedIndexes = new Set(assignments.keys())
+    const idCandidates = currentSteps.flatMap((step, oldIndex) => {
+      if (usedOldIds.has(step.id)) return []
+      const oldPosition = step.position ?? oldIndex / Math.max(1, currentSteps.length - 1)
+      return curvedSteps.map((freshStep, newIdx) => ({
+        distance: Math.abs(oldPosition - freshStep.position),
+        newIdx,
+        step,
+      }))
+    }).sort((a, b) => a.distance - b.distance)
+    for (const candidate of idCandidates) {
+      if (usedOldIds.has(candidate.step.id) || usedIndexes.has(candidate.newIdx)) continue
+      usedOldIds.add(candidate.step.id)
+      usedIndexes.add(candidate.newIdx)
+      preservedIds.set(candidate.newIdx, candidate.step.id)
+    }
+    return curvedSteps.map((freshStep, i) => {
       const locked = assignments.get(i)
       if (locked) {
-        return makeStep(locked.hex, newLabels[i]!, locked.isBase, locked.locked, backgrounds)
+        return makeStep(
+          locked.hex,
+          newLabels[i]!,
+          false,
+          true,
+          backgrounds,
+          freshStep.position,
+          locked.id,
+        )
       }
-      return freshStep
+      return { ...freshStep, id: preservedIds.get(i) ?? freshStep.id }
     })
   }
 
@@ -255,20 +431,20 @@ export function relabelPalette(
   scale: LabelScale,
 ): Palette {
   const maxVal  = scale === '0-10' ? 10 : scale === '0-100' ? 100 : 1000
-  const snap    = LABEL_SNAP[scale]
-  const { lightest, darkest } = palette.lightnessRange ?? projectLightnessRange
+  const configuredSnap = LABEL_SNAP[scale]
+  void projectLightnessRange
 
   function buildLabels(steps: PaletteStep[]): number[] {
-    const snapped = steps.map((step) => {
-      const t = Math.max(0, Math.min(1, (lightest - step.oklch.l) / (lightest - darkest)))
-      return Math.round(Math.round(t * maxVal) / snap) * snap
+    const intervals = Math.max(1, steps.length - 1)
+    const snap = intervals <= maxVal / configuredSnap
+      ? configuredSnap
+      : maxVal / intervals
+    const decimals = snap < 1 ? Math.min(3, Math.ceil(-Math.log10(snap)) + 1) : 0
+    return steps.map((step, i) => {
+      const position = step.position ?? i / intervals
+      const value = Math.round((position * maxVal) / snap) * snap
+      return Number(value.toFixed(decimals))
     })
-    // Ensure strictly increasing; bump collisions by one snap step
-    const labels = [...snapped]
-    for (let i = 1; i < labels.length; i++) {
-      if (labels[i]! <= labels[i - 1]!) labels[i] = labels[i - 1]! + snap
-    }
-    return labels
   }
 
   // Always derive from light mode; apply same indices to dark mode for consistency
@@ -276,9 +452,9 @@ export function relabelPalette(
   return {
     ...palette,
     modes: {
-      light: palette.modes.light.map((s, i) => ({ ...s, label: labels[i]! })),
+      light: palette.modes.light.map((s, i) => ({ ...s, label: labels[i]!, position: i / Math.max(1, labels.length - 1) })),
       dark: palette.modes.dark
-        ? palette.modes.dark.map((s, i) => ({ ...s, label: labels[i]! }))
+        ? palette.modes.dark.map((s, i) => ({ ...s, label: labels[i]!, position: i / Math.max(1, labels.length - 1) }))
         : null,
     },
   }

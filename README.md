@@ -1,6 +1,6 @@
 # Kulay
 
-An OKLCH-based color palette generator for design systems. Create perceptually uniform color scales, export to CSS/Tailwind/JSON, and fine-tune contrast ratios against WCAG targets — all in the browser, no account needed.
+An OKLCH-based color palette generator for design systems. Create perceptually uniform color scales, export to Tailwind/JSON/SVG, and fine-tune contrast ratios against WCAG targets — all in the browser, no account needed.
 
 ## Features
 
@@ -10,7 +10,7 @@ An OKLCH-based color palette generator for design systems. Create perceptually u
 - **Label scales** — generate step labels in 0–10, 0–100, or 0–1000 format, snapped to readable grids
 - **WCAG contrast check** — live contrast ratio table for every step against every other step
 - **Dark mode generation** — one click to generate a mirrored dark-mode ramp
-- **Export** — CSS custom properties, Tailwind config, or JSON
+- **Export** — Kulay JSON, Tailwind config, SVG ramps, or Markdown
 
 ## Tech stack
 

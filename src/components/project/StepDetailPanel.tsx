@@ -148,7 +148,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
   const recalibratePaletteToStep = useProjectStore((s) => s.recalibratePaletteToStep)
   const updatePaletteLightnessRange = useProjectStore((s) => s.updatePaletteLightnessRange)
   const applyPalettePreset = useProjectStore((s) => s.applyPalettePreset)
-  const updatePaletteEnvelopeExponent = useProjectStore((s) => s.updatePaletteEnvelopeExponent)
+  const updatePaletteCurve = useProjectStore((s) => s.updatePaletteCurve)
   const updatePaletteLightnessDistribution = useProjectStore((s) => s.updatePaletteLightnessDistribution)
   const renamePalette = useProjectStore((s) => s.renamePalette)
   const projectLightnessRange = useProjectStore((s) => s.activeProject?.lightnessRange ?? DEFAULT_LIGHTNESS_RANGE)
@@ -164,6 +164,10 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
   const effectiveDist = activePreset === 'manual'
     ? (palette.lightnessDistribution ?? 'linear')
     : PALETTE_PRESETS[activePreset].lightnessDistribution
+  const lightFalloff = palette.lightChromaFalloff ?? effectiveExponent
+  const darkFalloff = palette.darkChromaFalloff ?? effectiveExponent
+  const lightHueShift = palette.lightHueShift ?? 0
+  const darkHueShift = palette.darkHueShift ?? 0
 
   // ── Inline name editing ───────────────────────────────────────────────────
   const [nameEditing, setNameEditing] = useState(false)
@@ -280,7 +284,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
       {/* ── Preset ── */}
       <div className="flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Preset</span>
+          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Starting curve</span>
           <div className="relative group/tip">
             <span
               className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark cursor-default select-none"
@@ -290,14 +294,14 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             </span>
             <div className="pointer-events-none absolute right-0 top-full mt-2 w-60 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
               <div className="bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark rounded-lg shadow-lg p-3 text-[10px] text-fg-subtle dark:text-fg-subtle-dark leading-relaxed space-y-1.5">
-                <p>Each preset encodes a <strong className="text-fg-muted dark:text-fg-muted-dark font-medium">lightness range</strong> and <strong className="text-fg-muted dark:text-fg-muted-dark font-medium">chroma curve</strong> into a single named option.</p>
+                <p>Recipes initialize the same editable curve. Adjusting any control switches the palette to Custom.</p>
                 <ul className="space-y-1 text-fg-placeholder dark:text-fg-placeholder-dark">
                   <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Balanced</span> — general purpose, works for most hues.</li>
                   <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Vivid</span> — pushes chroma up for more saturated colors.</li>
                   <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Muted</span> — lower chroma, flatter and softer tones.</li>
                   <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Soft</span> — lighter range, good for backgrounds and tints.</li>
                   <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">High contrast</span> — stretches from near-white to near-black.</li>
-                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Manual</span> — exposes raw sliders for full control.</li>
+                  <li><span className="text-fg-subtle dark:text-fg-subtle-dark font-medium">Custom</span> — keeps the current curve and exposes direct controls.</li>
                 </ul>
               </div>
             </div>
@@ -305,7 +309,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
         </div>
         <div className="grid grid-cols-3 gap-1">
           {(['balanced', 'vivid', 'muted', 'soft', 'high-contrast', 'manual'] as PalettePreset[]).map((p) => {
-            const label = p === 'manual' ? 'Manual' : PALETTE_PRESETS[p].label
+            const label = p === 'manual' ? 'Custom' : PALETTE_PRESETS[p].label
             return (
               <button
                 key={p}
@@ -322,8 +326,8 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           })}
         </div>
 
-        {/* Manual controls — only shown when preset === 'manual' */}
-        {activePreset === 'manual' && (
+        {/* Curve controls remain available after applying any starting recipe. */}
+        {
           <div className="flex flex-col gap-2 pt-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
@@ -352,17 +356,50 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Expressive</span>
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Light fade</span>
               <input
-                type="range" min={40} max={140} step={5}
-                aria-label="Envelope exponent"
-                value={Math.round(effectiveExponent * 100)}
-                onChange={(e) => updatePaletteEnvelopeExponent(palette.id, Number(e.target.value) / 100)}
+                type="range" min={30} max={180} step={5}
+                aria-label="Light chroma falloff"
+                value={Math.round(lightFalloff * 100)}
+                onChange={(e) => updatePaletteCurve(palette.id, { lightChromaFalloff: Number(e.target.value) / 100 })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
               <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-                {effectiveExponent.toFixed(2)}
+                {lightFalloff.toFixed(2)}
               </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Dark fade</span>
+              <input
+                type="range" min={30} max={180} step={5}
+                aria-label="Dark chroma falloff"
+                value={Math.round(darkFalloff * 100)}
+                onChange={(e) => updatePaletteCurve(palette.id, { darkChromaFalloff: Number(e.target.value) / 100 })}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{darkFalloff.toFixed(2)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Light hue</span>
+              <input
+                type="range" min={-20} max={20} step={1}
+                aria-label="Light hue shift"
+                value={lightHueShift}
+                onChange={(e) => updatePaletteCurve(palette.id, { lightHueShift: Number(e.target.value) })}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{lightHueShift}°</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Dark hue</span>
+              <input
+                type="range" min={-20} max={20} step={1}
+                aria-label="Dark hue shift"
+                value={darkHueShift}
+                onChange={(e) => updatePaletteCurve(palette.id, { darkHueShift: Number(e.target.value) })}
+                className="flex-1 accent-neutral-700 dark:accent-neutral-300"
+              />
+              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{darkHueShift}°</span>
             </div>
             <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
               {(['linear', 'perceptual'] as const).map((val) => (
@@ -380,7 +417,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
               ))}
             </div>
           </div>
-        )}
+        }
       </div>
 
       {/* ── Preview ── */}
@@ -406,7 +443,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           onClick={() => recalibratePaletteToStep(palette.id, step.label)}
           className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:text-fg-base dark:hover:text-fg-base-dark bg-surface-control dark:bg-surface-control-dark transition-colors"
         >
-          Recalibrate scale
+          Fit entire scale from this color
         </button>
 
         <button

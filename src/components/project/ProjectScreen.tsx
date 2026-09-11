@@ -230,13 +230,11 @@ export function ProjectScreen() {
 
   function handleInsertStep(paletteId: string, leftLabel: number | null, rightLabel: number | null) {
     if (!selectedPalette) return
-    const oldLValues = getActiveSteps(selectedPalette).map((s) => s.oklch.l)
+    const oldStepIds = new Set(getActiveSteps(selectedPalette).map((step) => step.id))
     insertStep(paletteId, leftLabel, rightLabel)
     const updated = useProjectStore.getState().activeProject?.palettes.find((p) => p.id === paletteId)
     if (!updated) return
-    const newStep = getActiveSteps(updated).find((s) =>
-      oldLValues.every((l) => Math.abs(s.oklch.l - l) > 0.015),
-    )
+    const newStep = getActiveSteps(updated).find((step) => !oldStepIds.has(step.id))
     if (newStep) handleOpenStep(paletteId, newStep.label)
   }
 

@@ -66,6 +66,12 @@ export function clampToGamut(L: number, C: number, H: number): [number, number, 
   return [L, lo, H]
 }
 
+// Maximum usable OKLCH chroma for an sRGB color at a fixed lightness and hue.
+// The sRGB cusp is comfortably below 0.5 for the lightness range Kulay uses.
+export function maxChromaInGamut(L: number, H: number): number {
+  return clampToGamut(L, 0.5, H)[1]
+}
+
 export function oklchToHex(L: number, C: number, H: number): string {
   const [r, g, b] = oklchToLinearRgb(L, C, H)
   const R = Math.round(Math.max(0, Math.min(1, delinearize(r))) * 255)

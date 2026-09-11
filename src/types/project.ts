@@ -54,6 +54,10 @@ export interface Palette {
   preset?: PalettePreset                        // default 'balanced'
   lightnessRange?: LightnessRange               // only used when preset === 'manual'
   envelopeExponent?: number                     // only used when preset === 'manual'
+  lightChromaFalloff?: number                   // curve steepness toward the light end
+  darkChromaFalloff?: number                    // curve steepness toward the dark end
+  lightHueShift?: number                        // additional degrees at the light end
+  darkHueShift?: number                         // additional degrees at the dark end
   lightnessDistribution?: 'linear' | 'perceptual'  // only used when preset === 'manual'
   activeMode: 'light' | 'dark'
   modes: {
@@ -63,6 +67,8 @@ export interface Palette {
 }
 
 export interface PaletteStep {
+  id: string
+  position: number
   label: number
   hex: string
   isBase: boolean

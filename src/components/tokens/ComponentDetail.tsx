@@ -1534,7 +1534,8 @@ function TokenRow({ colorKey, c, palettes, theme, mode, assignToken, isLast }: {
   if (currentRef) {
     const pal = palettes.find(p => p.id === currentRef!.paletteId)
     const steps = pal ? getActiveSteps(pal) : []
-    const step  = steps.find(s => s.label === currentRef!.stepLabel)
+    const step  = (currentRef.stepId ? steps.find(s => s.id === currentRef!.stepId) : null)
+      ?? steps.find(s => s.label === currentRef!.stepLabel)
     if (pal && step) stepDisplay = `${pal.name} · ${step.label}`
   }
 

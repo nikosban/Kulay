@@ -35,8 +35,6 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Claude Code internals
-.claude/
 
 # Internal planning docs
 prd/

@@ -9,7 +9,8 @@ export function resolveRef(ref: TokenRef, palettes: Palette[], mode: 'light' | '
   const palette = palettes.find((p) => p.id === ref.paletteId)
   if (!palette) return null
   const steps = getModeSteps(palette, mode)
-  const step = steps.find((s) => s.label === ref.stepLabel)
+  const step = (ref.stepId ? steps.find((s) => s.id === ref.stepId) : null)
+    ?? steps.find((s) => s.label === ref.stepLabel)
   return step?.hex ?? null
 }
 

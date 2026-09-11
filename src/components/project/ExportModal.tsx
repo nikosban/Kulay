@@ -14,7 +14,7 @@ type ExportFormat = 'json' | 'tailwind' | 'svg'
 type CopyFormat = 'json' | 'markdown' | 'svg'
 
 const EXPORT_FORMATS: { id: ExportFormat; label: string; desc: string }[] = [
-  { id: 'json',     label: 'Kulay JSON',      desc: 'Full project file, re-importable' },
+  { id: 'json',     label: 'Kulay JSON',      desc: 'Complete project data for backup or tooling' },
   { id: 'tailwind', label: 'Tailwind Config',  desc: 'Ready to paste into tailwind.config.js' },
   { id: 'svg',      label: 'SVG Ramp',         desc: 'Horizontal color swatch strip' },
 ]
