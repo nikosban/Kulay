@@ -40,6 +40,28 @@ function lightEndChromaFloor(
   return mix(chromaticFloor, tintFloor, neutralWeight)
 }
 
+// Greens have an unusually wide sRGB cusp at high lightness. Preserving the
+// same gamut occupancy there reads as fluorescent rather than merely colorful.
+// This smooth ceiling is strongest for lime/green, fades through neighboring
+// hues, and does not engage for tinted neutrals.
+function lightGreenChromaCeiling(
+  inputC: number,
+  stepL: number,
+  stepH: number,
+): number {
+  const hue = ((stepH % 360) + 360) % 360
+  const enterGreen = smoothstep(72, 98, hue)
+  const leaveGreen = 1 - smoothstep(150, 178, hue)
+  const greenWeight = enterGreen * leaveGreen
+  const lightRisk = smoothstep(0.78, 0.95, stepL)
+  const lightActivation = smoothstep(0.72, 0.84, stepL)
+  const chromaticWeight = smoothstep(0.035, 0.09, inputC)
+  const correction = greenWeight * lightActivation * chromaticWeight
+  const maxOccupancyAtThisLightness = mix(0.58, 0.20, lightRisk)
+  const capacity = maxChromaInGamut(stepL, stepH)
+  return capacity * mix(1, maxOccupancyAtThisLightness, correction)
+}
+
 function hueChromaMultiplier(H: number, stepFraction: number): number {
   // stepFraction: 0 = lightest, 1 = darkest (lightness axis, not step index)
   const lightness = 1 - stepFraction
@@ -263,7 +285,10 @@ export function harmonize(
       lightProgress,
       lightFalloff,
     )
-    const retainedC = Math.max(C, identityFloor)
+    const retainedC = Math.min(
+      Math.max(C, identityFloor),
+      lightGreenChromaCeiling(inputC, stepL, H),
+    )
 
     return { L: stepL, C: retainedC, H }
   })
