@@ -56,8 +56,26 @@ describe('palette generation invariants', () => {
     }
   })
 
-  it('retains gamut-relative colorfulness across the light-end hue spectrum', () => {
+  it('preserves a very subtle tint in the light ramp when the palette is created in dark mode', () => {
+    const seed = oklchToHex(0.56, 0.005, 55)
+    const palette = generatePaletteForMode(
+      seed,
+      10,
+      backgrounds,
+      [],
+      'dark',
+      { lightest: 0.98, darkest: 0.12 },
+    )
+    const lightest = palette.modes.light[0]!
+
+    expect(hexToOklch(seed)[1]).toBeGreaterThan(0.003)
+    expect(lightest.oklch.c).toBeGreaterThan(0.0015)
+    expect(lightest.hex.slice(1, 3) === lightest.hex.slice(3, 5) && lightest.hex.slice(3, 5) === lightest.hex.slice(5, 7)).toBe(false)
+  })
+
+  it('retains gamut-relative colorfulness outside the neon-prone green spectrum', () => {
     for (let hue = 0; hue < 360; hue += 30) {
+      if (hue >= 90 && hue <= 150) continue
       const baseL = 0.58
       const baseC = maxChromaInGamut(baseL, hue) * 0.68
       const seed = oklchToHex(baseL, baseC, hue)
@@ -74,6 +92,35 @@ describe('palette generation invariants', () => {
 
       expect(lightOccupancy).toBeGreaterThan(baseOccupancy * 0.45)
     }
+  })
+
+  it.each(['light', 'dark'] as const)('limits neon-prone chromatic greens at the light end in %s mode', (mode) => {
+    for (const hue of [95, 115, 135, 155]) {
+      const baseL = 0.58
+      const seed = oklchToHex(baseL, maxChromaInGamut(baseL, hue) * 0.72, hue)
+      const steps = generateModeSteps(seed, 10, backgrounds, mode, { lightest: 0.96, darkest: 0.12 })
+      const lightest = mode === 'light' ? steps[0]! : steps[steps.length - 1]!
+      const occupancy = lightest.oklch.c / maxChromaInGamut(lightest.oklch.l, lightest.oklch.h)
+
+      expect(
+        occupancy,
+        `${mode} hue ${hue}: L=${lightest.oklch.l} C=${lightest.oklch.c} H=${lightest.oklch.h}`,
+      ).toBeLessThan(0.38)
+    }
+  })
+
+  it('keeps a green tinted-neutral visible without applying the neon ceiling', () => {
+    const seed = oklchToHex(0.56, 0.022, 130)
+    const [, baseC] = hexToOklch(seed)
+    const lightest = generateModeSteps(
+      seed,
+      10,
+      backgrounds,
+      'light',
+      { lightest: 0.98, darkest: 0.12 },
+    )[0]!
+
+    expect(lightest.oklch.c).toBeGreaterThan(baseC * 0.45)
   })
 
   it('does not invent a tint for a true neutral', () => {

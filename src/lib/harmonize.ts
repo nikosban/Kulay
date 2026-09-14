@@ -1,5 +1,7 @@
 import { clampToGamut, maxChromaInGamut } from './color'
 
+const ACHROMATIC_CHROMA_EPSILON = 0.0005
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
 }
@@ -26,7 +28,7 @@ function lightEndChromaFloor(
   progress: number,
   lightFalloff: number,
 ): number {
-  if (inputC < 0.008 || progress <= 0) return 0
+  if (inputC < ACHROMATIC_CHROMA_EPSILON || progress <= 0) return 0
 
   const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
   const baseCapacity = Math.max(0.0001, maxChromaInGamut(inputL, inputH))
@@ -38,6 +40,28 @@ function lightEndChromaFloor(
   const tintFloor = inputC * mix(1, tintRetention, progress)
   const chromaticFloor = stepCapacity * baseOccupancy * mix(1, colorRetention, progress)
   return mix(chromaticFloor, tintFloor, neutralWeight)
+}
+
+// Greens have an unusually wide sRGB cusp at high lightness. Preserving the
+// same gamut occupancy there reads as fluorescent rather than merely colorful.
+// This smooth ceiling is strongest for lime/green, fades through neighboring
+// hues, and does not engage for tinted neutrals.
+function lightGreenChromaCeiling(
+  inputC: number,
+  stepL: number,
+  stepH: number,
+): number {
+  const hue = ((stepH % 360) + 360) % 360
+  const enterGreen = smoothstep(72, 98, hue)
+  const leaveGreen = 1 - smoothstep(150, 178, hue)
+  const greenWeight = enterGreen * leaveGreen
+  const lightRisk = smoothstep(0.78, 0.95, stepL)
+  const lightActivation = smoothstep(0.72, 0.84, stepL)
+  const chromaticWeight = smoothstep(0.035, 0.09, inputC)
+  const correction = greenWeight * lightActivation * chromaticWeight
+  const maxOccupancyAtThisLightness = mix(0.58, 0.20, lightRisk)
+  const capacity = maxChromaInGamut(stepL, stepH)
+  return capacity * mix(1, maxOccupancyAtThisLightness, correction)
 }
 
 function hueChromaMultiplier(H: number, stepFraction: number): number {
@@ -242,7 +266,7 @@ export function harmonize(
       ? (baseFraction - stepFraction) / baseFraction
       : 0
     let stepL = i === baseIndex ? inputL : L
-    if (lightProgress > 0.8 && inputC >= 0.008) {
+    if (lightProgress > 0.8 && inputC >= ACHROMATIC_CHROMA_EPSILON) {
       const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
       const retention = Math.max(0.32, Math.min(0.76, 0.85 - 0.35 * lightFalloff))
       const requiredTint = inputC * mix(1, retention, lightProgress) * neutralWeight
@@ -263,7 +287,10 @@ export function harmonize(
       lightProgress,
       lightFalloff,
     )
-    const retainedC = Math.max(C, identityFloor)
+    const retainedC = Math.min(
+      Math.max(C, identityFloor),
+      lightGreenChromaCeiling(inputC, stepL, H),
+    )
 
     return { L: stepL, C: retainedC, H }
   })
