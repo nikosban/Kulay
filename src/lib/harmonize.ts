@@ -1,5 +1,7 @@
 import { clampToGamut, maxChromaInGamut } from './color'
 
+const ACHROMATIC_CHROMA_EPSILON = 0.0005
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value))
 }
@@ -26,7 +28,7 @@ function lightEndChromaFloor(
   progress: number,
   lightFalloff: number,
 ): number {
-  if (inputC < 0.008 || progress <= 0) return 0
+  if (inputC < ACHROMATIC_CHROMA_EPSILON || progress <= 0) return 0
 
   const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
   const baseCapacity = Math.max(0.0001, maxChromaInGamut(inputL, inputH))
@@ -264,7 +266,7 @@ export function harmonize(
       ? (baseFraction - stepFraction) / baseFraction
       : 0
     let stepL = i === baseIndex ? inputL : L
-    if (lightProgress > 0.8 && inputC >= 0.008) {
+    if (lightProgress > 0.8 && inputC >= ACHROMATIC_CHROMA_EPSILON) {
       const neutralWeight = 1 - smoothstep(0.018, 0.07, inputC)
       const retention = Math.max(0.32, Math.min(0.76, 0.85 - 0.35 * lightFalloff))
       const requiredTint = inputC * mix(1, retention, lightProgress) * neutralWeight

@@ -56,6 +56,23 @@ describe('palette generation invariants', () => {
     }
   })
 
+  it('preserves a very subtle tint in the light ramp when the palette is created in dark mode', () => {
+    const seed = oklchToHex(0.56, 0.005, 55)
+    const palette = generatePaletteForMode(
+      seed,
+      10,
+      backgrounds,
+      [],
+      'dark',
+      { lightest: 0.98, darkest: 0.12 },
+    )
+    const lightest = palette.modes.light[0]!
+
+    expect(hexToOklch(seed)[1]).toBeGreaterThan(0.003)
+    expect(lightest.oklch.c).toBeGreaterThan(0.0015)
+    expect(lightest.hex.slice(1, 3) === lightest.hex.slice(3, 5) && lightest.hex.slice(3, 5) === lightest.hex.slice(5, 7)).toBe(false)
+  })
+
   it('retains gamut-relative colorfulness outside the neon-prone green spectrum', () => {
     for (let hue = 0; hue < 360; hue += 30) {
       if (hue >= 90 && hue <= 150) continue

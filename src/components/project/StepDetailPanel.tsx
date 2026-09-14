@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
+import { IconChevronDown, IconPencil, IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
 import type { Palette, PaletteStep, PalettePreset } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS, getActiveSteps } from '../../types/project'
 import { useProjectStore } from '../../store/useProjectStore'
@@ -82,6 +82,61 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
+function EditableNumberInput({
+  value,
+  min,
+  max,
+  step,
+  decimals = 0,
+  ariaLabel,
+  onCommit,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  decimals?: number
+  ariaLabel: string
+  onCommit: (value: number) => void
+}) {
+  const [draft, setDraft] = useState(value.toFixed(decimals))
+  const [editing, setEditing] = useState(false)
+
+  useEffect(() => {
+    if (!editing) setDraft(value.toFixed(decimals))
+  }, [value, decimals, editing])
+
+  function commit() {
+    const parsed = Number(draft)
+    if (Number.isFinite(parsed)) onCommit(Math.max(min, Math.min(max, parsed)))
+    else setDraft(value.toFixed(decimals))
+    setEditing(false)
+  }
+
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      aria-label={`${ariaLabel} value`}
+      value={draft}
+      onFocus={(e) => { setEditing(true); e.target.select() }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          setDraft(value.toFixed(decimals))
+          setEditing(false)
+          e.currentTarget.blur()
+        }
+      }}
+      className="w-10 rounded border border-transparent bg-transparent px-1 py-0.5 text-right text-[10px] tabular-nums text-fg-muted outline-none hover:border-bd-base focus:border-bd-strong dark:text-fg-muted-dark dark:hover:border-bd-base-dark dark:focus:border-bd-strong-dark"
+    />
+  )
+}
+
 function EditableMultiValueRow({
   keys,
   displays,
@@ -106,31 +161,29 @@ function EditableMultiValueRow({
         {keys.map((key, idx) => (
           <div key={key} className="flex items-center gap-1 px-2 py-1.5 flex-1 min-w-0 bg-surface-control dark:bg-surface-control-dark">
             <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-shrink-0">{key}</span>
-            {editingIdx === idx ? (
-              <input
-                autoFocus
-                type="text"
-                className="flex-1 min-w-0 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
-                value={editValue}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setEditValue(e.target.value)}
-                onBlur={() => {
-                  onCommit(buildColor(idx, editValue, rawValues))
+            <input
+              type="text"
+              aria-label={`${key} value`}
+              className="flex-1 min-w-0 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark bg-transparent outline-none"
+              value={editingIdx === idx ? editValue : displays[idx]}
+              onFocus={(e) => {
+                setEditingIdx(idx)
+                setEditValue(rawValues[idx]!)
+                requestAnimationFrame(() => e.target.select())
+              }}
+              onChange={(e) => setEditValue(e.target.value)}
+              onBlur={() => {
+                if (editingIdx === idx) onCommit(buildColor(idx, editValue, rawValues))
+                setEditingIdx(null)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+                if (e.key === 'Escape') {
                   setEditingIdx(null)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                  if (e.key === 'Escape') setEditingIdx(null)
-                }}
-              />
-            ) : (
-              <span
-                className="flex-1 min-w-0 text-[11px] font-mono text-fg-subtle dark:text-fg-subtle-dark truncate cursor-text"
-                onClick={() => { setEditingIdx(idx); setEditValue(rawValues[idx]!) }}
-              >
-                {displays[idx]}
-              </span>
-            )}
+                  e.currentTarget.blur()
+                }
+              }}
+            />
           </div>
         ))}
       </div>
@@ -172,6 +225,9 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
   // ── Inline name editing ───────────────────────────────────────────────────
   const [nameEditing, setNameEditing] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [previewOpen, setPreviewOpen] = useState(true)
+  const [curveOpen, setCurveOpen] = useState(false)
+  const [wcagOpen, setWcagOpen] = useState(false)
 
   function startNameEdit() {
     setNameInput(palette.name)
@@ -266,9 +322,14 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           <button
             onClick={startNameEdit}
             title="Click to rename"
-            className="flex-1 min-w-0 text-left text-[13px] font-semibold text-fg-base dark:text-fg-base-dark truncate hover:opacity-60 transition-opacity"
+            className="group/name flex flex-1 min-w-0 items-center gap-1.5 text-left text-[13px] font-semibold text-fg-base dark:text-fg-base-dark"
           >
-            {palette.name}
+            <span className="truncate">{palette.name}</span>
+            <IconPencil
+              size={12}
+              stroke={1.75}
+              className="flex-shrink-0 text-fg-placeholder dark:text-fg-placeholder-dark opacity-0 group-hover/name:opacity-100 transition-opacity"
+            />
           </button>
         )}
         <button
@@ -282,9 +343,16 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
       </div>
 
       {/* ── Preset ── */}
-      <div className="flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
+      <div className="order-2 flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Starting curve</span>
+          <button
+            onClick={() => setCurveOpen((open) => !open)}
+            aria-expanded={curveOpen}
+            className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark"
+          >
+            <IconChevronDown size={13} stroke={1.75} className={`transition-transform ${curveOpen ? '' : '-rotate-90'}`} />
+            Starting curve
+          </button>
           <div className="relative group/tip">
             <span
               className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark cursor-default select-none"
@@ -307,6 +375,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             </div>
           </div>
         </div>
+        {curveOpen && (<>
         <div className="grid grid-cols-3 gap-1">
           {(['balanced', 'vivid', 'muted', 'soft', 'high-contrast', 'manual'] as PalettePreset[]).map((p) => {
             const label = p === 'manual' ? 'Custom' : PALETTE_PRESETS[p].label
@@ -327,7 +396,6 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
         </div>
 
         {/* Curve controls remain available after applying any starting recipe. */}
-        {
           <div className="flex flex-col gap-2 pt-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Lightest</span>
@@ -338,9 +406,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: Number(e.target.value) / 100 })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-                {Math.round(effectiveRange.lightest * 100)}
-              </span>
+              <EditableNumberInput
+                value={Math.round(effectiveRange.lightest * 100)} min={75} max={99} step={1}
+                ariaLabel="Lightest"
+                onCommit={(value) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, lightest: value / 100 })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Darkest</span>
@@ -351,9 +421,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: Number(e.target.value) / 100 })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-                {Math.round(effectiveRange.darkest * 100)}
-              </span>
+              <EditableNumberInput
+                value={Math.round(effectiveRange.darkest * 100)} min={5} max={30} step={1}
+                ariaLabel="Darkest"
+                onCommit={(value) => updatePaletteLightnessRange(palette.id, { ...effectiveRange, darkest: value / 100 })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Light fade</span>
@@ -364,9 +436,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteCurve(palette.id, { lightChromaFalloff: Number(e.target.value) / 100 })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">
-                {lightFalloff.toFixed(2)}
-              </span>
+              <EditableNumberInput
+                value={lightFalloff} min={0.3} max={1.8} step={0.05} decimals={2}
+                ariaLabel="Light chroma falloff"
+                onCommit={(value) => updatePaletteCurve(palette.id, { lightChromaFalloff: value })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Dark fade</span>
@@ -377,7 +451,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteCurve(palette.id, { darkChromaFalloff: Number(e.target.value) / 100 })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{darkFalloff.toFixed(2)}</span>
+              <EditableNumberInput
+                value={darkFalloff} min={0.3} max={1.8} step={0.05} decimals={2}
+                ariaLabel="Dark chroma falloff"
+                onCommit={(value) => updatePaletteCurve(palette.id, { darkChromaFalloff: value })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Light hue</span>
@@ -388,7 +466,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteCurve(palette.id, { lightHueShift: Number(e.target.value) })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{lightHueShift}°</span>
+              <EditableNumberInput
+                value={lightHueShift} min={-20} max={20} step={1}
+                ariaLabel="Light hue shift"
+                onCommit={(value) => updatePaletteCurve(palette.id, { lightHueShift: value })}
+              />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark w-12">Dark hue</span>
@@ -399,7 +481,11 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
                 onChange={(e) => updatePaletteCurve(palette.id, { darkHueShift: Number(e.target.value) })}
                 className="flex-1 accent-neutral-700 dark:accent-neutral-300"
               />
-              <span className="text-[10px] tabular-nums text-fg-muted dark:text-fg-muted-dark w-6 text-right">{darkHueShift}°</span>
+              <EditableNumberInput
+                value={darkHueShift} min={-20} max={20} step={1}
+                ariaLabel="Dark hue shift"
+                onCommit={(value) => updatePaletteCurve(palette.id, { darkHueShift: value })}
+              />
             </div>
             <div className="flex items-center rounded-md border border-bd-base dark:border-bd-base-dark overflow-hidden">
               {(['linear', 'perceptual'] as const).map((val) => (
@@ -417,51 +503,23 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
               ))}
             </div>
           </div>
-        }
+        </>)}
       </div>
 
-      {/* ── Preview ── */}
-      <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark">
+      {/* ── Preview and values ── */}
+      <div className={`order-1 flex flex-col gap-2 p-3 ${previewOpen ? '' : 'border-b border-bd-base dark:border-bd-base-dark'}`}>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] text-fg-placeholder dark:text-fg-placeholder-dark">Preview</span>
+          <button
+            onClick={() => setPreviewOpen((open) => !open)}
+            aria-expanded={previewOpen}
+            className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark"
+          >
+            <IconChevronDown size={13} stroke={1.75} className={`transition-transform ${previewOpen ? '' : '-rotate-90'}`} />
+            Preview &amp; values
+          </button>
           <div className="flex items-center gap-1.5">
             <span className="text-[11px] font-medium text-fg-muted dark:text-fg-subtle-dark">{stepName}</span>
             {step.isBase && <span className="text-[9px] text-fg-placeholder dark:text-fg-placeholder-dark">Base</span>}
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="w-5 h-5 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors text-base leading-none"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        <div className="w-full h-24 rounded-lg flex-shrink-0" style={{ backgroundColor: step.hex }} />
-
-        <button
-          onClick={() => recalibratePaletteToStep(palette.id, step.label)}
-          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:text-fg-base dark:hover:text-fg-base-dark bg-surface-control dark:bg-surface-control-dark transition-colors"
-        >
-          Fit entire scale from this color
-        </button>
-
-        <button
-          onClick={() => { deleteStep(palette.id, step.label); onClose() }}
-          disabled={!canDelete}
-          className="w-full flex items-center justify-center gap-1.5 text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-placeholder dark:text-fg-placeholder-dark hover:border-bd-danger dark:hover:border-bd-danger-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark bg-surface-control dark:bg-surface-control-dark disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-        >
-          <IconTrash size={12} stroke={1.75} />
-          Delete step
-        </button>
-      </div>
-
-      {/* ── Values ── */}
-      <div className="flex flex-col gap-2 p-3 border-b border-bd-base dark:border-bd-base-dark">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">Values</span>
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark">{stepName}</span>
             <button
               onClick={() => step.locked ? unlockStep(palette.id, step.label) : lockStep(palette.id, step.label)}
               title={step.locked ? 'Unlock step' : 'Lock step'}
@@ -476,6 +534,31 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           </div>
         </div>
 
+        {previewOpen && (<>
+        <div className="w-full h-24 rounded-lg flex-shrink-0" style={{ backgroundColor: step.hex }} />
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => recalibratePaletteToStep(palette.id, step.label)}
+            className="flex-1 flex items-center justify-center text-xs py-1.5 rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-muted dark:text-fg-muted-dark hover:border-bd-strong dark:hover:border-bd-strong-dark hover:text-fg-base dark:hover:text-fg-base-dark bg-surface-control dark:bg-surface-control-dark transition-colors"
+          >
+            Recalibrate
+          </button>
+          <button
+            onClick={() => { deleteStep(palette.id, step.label); onClose() }}
+            disabled={!canDelete}
+            title="Delete step"
+            aria-label="Delete step"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-bd-base dark:border-bd-base-dark text-fg-placeholder dark:text-fg-placeholder-dark hover:border-bd-danger dark:hover:border-bd-danger-dark hover:text-fg-danger dark:hover:text-fg-danger-dark hover:bg-surface-danger-subtle-rest dark:hover:bg-surface-danger-subtle-rest-dark bg-surface-control dark:bg-surface-control-dark disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <IconTrash size={13} stroke={1.75} />
+          </button>
+        </div>
+        </>)}
+      </div>
+
+      {/* ── Values ── */}
+      {previewOpen && (<div className="order-1 flex flex-col gap-2 px-3 pb-3 border-b border-bd-base dark:border-bd-base-dark">
         {/* Hex */}
         <div className="flex items-center gap-1">
           <div className={`flex items-center flex-1 gap-1.5 px-2 py-1.5 bg-surface-control dark:bg-surface-control-dark rounded-lg border transition-colors ${
@@ -544,14 +627,22 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
           }}
           onCommit={commitColor}
         />
-      </div>
+      </div>)}
 
       {/* ── WCAG Check ── */}
-      <div className="flex flex-col gap-2 p-3">
+      <div className="order-3 flex flex-col gap-2 p-3">
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark">WCAG Check</span>
+          <button
+            onClick={() => setWcagOpen((open) => !open)}
+            aria-expanded={wcagOpen}
+            className="flex flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-fg-muted dark:text-fg-muted-dark"
+          >
+            <IconChevronDown size={13} stroke={1.75} className={`transition-transform ${wcagOpen ? '' : '-rotate-90'}`} />
+            WCAG
+          </button>
         </div>
 
+        {wcagOpen && (<>
         {/* Column labels */}
         <div className="flex items-center gap-2 px-2">
           <span className="text-[10px] text-fg-placeholder dark:text-fg-placeholder-dark flex-1 text-left">Step</span>
@@ -598,8 +689,8 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             return (
               <div
                 key={bgStep.label}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${
-                  isCurrent ? 'ring-2 ring-inset ring-black/20 dark:ring-white/20' : ''
+                className={`flex items-center gap-2 px-2 rounded-lg ${
+                  isCurrent ? 'py-2.5 ring-2 ring-inset ring-black/20 dark:ring-white/20' : 'py-1.5'
                 }`}
                 style={{ backgroundColor: bgStep.hex }}
               >
@@ -625,6 +716,7 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
             )
           })}
         </div>
+        </>)}
       </div>
 
     </div>
