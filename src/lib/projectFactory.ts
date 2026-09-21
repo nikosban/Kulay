@@ -5,6 +5,7 @@ export function createProject(initialPalettes?: Palette[]): Project {
   const now = Date.now()
   return {
     id: crypto.randomUUID(),
+    curveDataVersion: 2,
     name: 'Untitled',
     stepCount: 10,
     backgrounds: {
@@ -13,6 +14,8 @@ export function createProject(initialPalettes?: Palette[]): Project {
     },
     lightnessRange: DEFAULT_LIGHTNESS_RANGE,
     palettes: initialPalettes ?? [],
+    savedCurves: [],
+    curveSets: [],
     createdAt: now,
     updatedAt: now,
   }

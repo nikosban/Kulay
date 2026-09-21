@@ -201,6 +201,36 @@ describe('palette generation invariants', () => {
     }
   })
 
+  it.each(['light', 'dark'] as const)('keeps a compatible edited endpoint in %s mode', (mode) => {
+    const palette = generatePaletteForMode('#3b82f6', 10, backgrounds, [], mode)
+    const steps = getActiveSteps(palette)
+    const endpointIndex = 0
+    const endpoint = steps[endpointIndex]!
+    const neighbor = steps[1]!
+    const targetL = endpoint.oklch.l < neighbor.oklch.l
+      ? (endpoint.oklch.l + neighbor.oklch.l) / 2
+      : (endpoint.oklch.l + neighbor.oklch.l) / 2
+    const targetHex = oklchToHex(targetL, endpoint.oklch.c, endpoint.oklch.h)
+    const edited: Palette = {
+      ...palette,
+      modes: {
+        ...palette.modes,
+        [mode]: steps.map((step, index) => index === endpointIndex
+          ? { ...step, hex: targetHex, locked: true }
+          : step),
+      },
+    }
+
+    const regenerated = regeneratePalette(edited, 10, backgrounds)
+    const regeneratedSteps = getActiveSteps(regenerated)
+    expect(regeneratedSteps[endpointIndex]!.hex).toBe(targetHex)
+    expect(regeneratedSteps[endpointIndex]!.locked).toBe(true)
+    for (let i = 1; i < regeneratedSteps.length; i++) {
+      if (mode === 'light') expect(regeneratedSteps[i]!.oklch.l).toBeLessThan(regeneratedSteps[i - 1]!.oklch.l)
+      else expect(regeneratedSteps[i]!.oklch.l).toBeGreaterThan(regeneratedSteps[i - 1]!.oklch.l)
+    }
+  })
+
   it.each(['light', 'dark'] as const)('keeps the exact base immutable with %s-mode anchors', (mode) => {
     const light = generatePalette('#b77900', 14, backgrounds, [], { lightest: 0.96, darkest: 0.18 }, {
       lightnessDistribution: 'perceptual',

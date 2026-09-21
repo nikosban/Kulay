@@ -1,9 +1,10 @@
-import type { Palette, PaletteStep, LightnessRange, LabelScale, Project } from '../types/project'
+import type { CurveValues, Palette, PaletteStep, LightnessRange, LabelScale, Project } from '../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS } from '../types/project'
 import { hexToOklch, clampToGamut, oklchToHex } from './color'
 import { computeLightnesses, harmonize } from './harmonize'
 import { contrastRatio } from './wcag'
 import { inferPaletteName } from './paletteName'
+import { curveValuesFromOklch } from './curveEngine'
 
 export interface GenOpts {
   envelopeExponent?: number
@@ -106,8 +107,11 @@ function makeStep(
   backgrounds: { light: string; dark: string },
   position: number,
   id: string = crypto.randomUUID(),
+  curveValues?: CurveValues,
+  mappedOklch?: PaletteStep['oklch'],
 ): PaletteStep {
-  const [l, c, h] = hexToOklch(hex)
+  const [parsedL, parsedC, parsedH] = hexToOklch(hex)
+  const { l, c, h } = mappedOklch ?? { l: parsedL, c: parsedC, h: parsedH }
   return {
     id,
     position,
@@ -115,6 +119,7 @@ function makeStep(
     hex,
     isBase,
     locked,
+    curveValues: curveValues ?? curveValuesFromOklch(l, c, h, h),
     oklch: { l, c, h },
     contrast: {
       onLight: contrastRatio(hex, backgrounds.light),
@@ -140,6 +145,8 @@ export function generateModeSteps(
   return harmonizedSteps.map((hs, i) => {
     const [L, C, H] = clampToGamut(hs.L, hs.C, hs.H)
     const hex = i === baseIndex ? inputHex : oklchToHex(L, C, H)
+    const curveValues = curveValuesFromOklch(hs.L, hs.C, hs.H, inputH)
+    if (i === baseIndex) Object.assign(curveValues, curveValuesFromOklch(inputL, inputC, inputH, inputH))
     return makeStep(
       hex,
       stepLabels[i] ?? Math.round((i * 100) / (n - 1)),
@@ -147,6 +154,9 @@ export function generateModeSteps(
       false,
       backgrounds,
       i / (n - 1),
+      undefined,
+      curveValues,
+      { l: L, c: C, h: H },
     )
   })
 }
@@ -263,7 +273,8 @@ export function regeneratePalette(
     for (const [index, locked] of [...assignments.entries()].filter(([index]) => index < baseIndex).sort((a, b) => b[0] - a[0])) {
       const [l] = hexToOklch(locked.hex)
       const followsBase = direction * (boundaryL - l) > minGap * (boundaryIndex - index)
-      const followsEndpoint = direction * (l - freshSteps[0]!.oklch.l) > minGap * index
+      const followsEndpoint = index === 0
+        || direction * (l - freshSteps[0]!.oklch.l) > minGap * index
       if (followsBase && followsEndpoint) {
         compatible.set(index, locked)
         boundaryIndex = index
@@ -275,7 +286,8 @@ export function regeneratePalette(
     for (const [index, locked] of [...assignments.entries()].filter(([index]) => index > baseIndex).sort((a, b) => a[0] - b[0])) {
       const [l] = hexToOklch(locked.hex)
       const followsBase = direction * (l - boundaryL) > minGap * (index - boundaryIndex)
-      const followsEndpoint = direction * (freshSteps[n - 1]!.oklch.l - l) > minGap * (n - 1 - index)
+      const followsEndpoint = index === n - 1
+        || direction * (freshSteps[n - 1]!.oklch.l - l) > minGap * (n - 1 - index)
       if (followsBase && followsEndpoint) {
         compatible.set(index, locked)
         boundaryIndex = index
@@ -334,6 +346,8 @@ export function regeneratePalette(
         backgrounds,
         step.position,
         step.id,
+        curveValuesFromOklch(l, c, h, hexToOklch(palette.baseHex)[2]),
+        { l, c, h },
       )
     }
     const curvedSteps = freshSteps.map(correctedStep)
@@ -366,6 +380,8 @@ export function regeneratePalette(
           backgrounds,
           freshStep.position,
           locked.id,
+          locked.curveValues,
+          locked.oklch,
         )
       }
       return { ...freshStep, id: preservedIds.get(i) ?? freshStep.id }

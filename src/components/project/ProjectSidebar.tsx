@@ -24,6 +24,8 @@ import { generatePaletteForMode, validateBasePosition, type GenOpts } from '../.
 import { generateDiverseColor } from '../../lib/randomColor'
 import { sanitizeHex } from '../../lib/hexInput'
 import { TokenEditor } from '../tokens/TokenEditor'
+import { CurveLibrary } from './CurveLibrary'
+import { applySavedCurve as applyCurvePreview } from '../../lib/savedCurves'
 
 const PALETTE_LIMIT = 10
 
@@ -104,9 +106,11 @@ interface Props {
   onTabChange: (tab: 'colors' | 'tokens') => void
   selectedPaletteId: string | null
   onSelectPalette: (id: string | null) => void
+  selectedCurveId: string | null
+  onSelectCurve: (id: string) => void
 }
 
-export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPaletteId, onSelectPalette }: Props) {
+export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPaletteId, onSelectPalette, selectedCurveId, onSelectCurve }: Props) {
   const { isDark } = useTheme()
   const activeProject = useProjectStore((s) => s.activeProject)
   const addPalette = useProjectStore((s) => s.addPalette)
@@ -121,6 +125,7 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
   const assignToken = useProjectStore((s) => s.assignToken)
   const assignRolePalette = useProjectStore((s) => s.assignRolePalette)
   const generateAndAddRolePalette = useProjectStore((s) => s.generateAndAddRolePalette)
+  const curvePreview = useProjectStore((s) => s.curvePreview)
 
   const [sidebarWidth, setSidebarWidth] = useState(240)
   const isResizing = useRef(false)
@@ -156,7 +161,11 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
 
   if (!activeProject) return null
 
-  const palettes = activeProject.palettes
+  const palettes = curvePreview
+    ? activeProject.palettes.map((palette) => palette.curveBindings?.[curvePreview.type] === curvePreview.id
+      ? applyCurvePreview(palette, curvePreview, activeProject.backgrounds)
+      : palette)
+    : activeProject.palettes
   const atLimit = palettes.length >= PALETTE_LIMIT
 
   function handleDragEnd(event: DragEndEvent) {
@@ -407,6 +416,14 @@ export function ProjectSidebar({ onBack, activeTab, onTabChange, selectedPalette
               <IconPlus size={12} stroke={2} />
               Add color
             </button>
+          )}
+
+          {palettes.length > 0 && (
+            <CurveLibrary
+              palette={palettes.find((palette) => palette.id === selectedPaletteId) ?? palettes[0]!}
+              selectedCurveId={selectedCurveId}
+              onSelectCurve={onSelectCurve}
+            />
           )}
         </div>
       </div>}

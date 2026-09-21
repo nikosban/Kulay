@@ -29,8 +29,49 @@ export const DEFAULT_PRESET: PalettePreset = 'balanced'
 export type LabelScale = '0-10' | '0-100' | '0-1000'
 export const DEFAULT_LABEL_SCALE: LabelScale = '0-1000'
 
+export type CurveType = 'lightness' | 'chroma' | 'hue'
+export type CurveConstraintStrategy = 'free' | 'monotonic' | 'smooth' | 'anchored'
+export type CurveValues = Record<CurveType, number>
+export type CurveShapePreset = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'smoothstep' | 'bell' | 'early-peak' | 'late-peak' | 'soft-ends'
+
+export interface SavedCurvePoint {
+  id: string
+  position: number
+  value: number
+}
+
+export interface CurveCorrectionPoint {
+  id: string
+  position: number
+  value: number
+}
+
+export interface CurveCorrectionModes {
+  light: CurveCorrectionPoint[]
+  dark: CurveCorrectionPoint[]
+}
+
+export interface SavedCurve {
+  id: string
+  name: string
+  type: CurveType
+  strategy?: CurveConstraintStrategy
+  points: SavedCurvePoint[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CurveSetDefinition {
+  id: string
+  name: string
+  curveIds: Record<CurveType, string>
+  createdAt: number
+  updatedAt: number
+}
+
 export interface Project {
   id: string
+  curveDataVersion?: 2
   name: string
   stepCount: number
   backgrounds: {
@@ -42,6 +83,8 @@ export interface Project {
   envelopeExponent?: number               // 0.4–1.4, default 0.75; controls chroma envelope shape
   lightnessDistribution?: 'linear' | 'perceptual'  // default 'linear'
   palettes: Palette[]
+  savedCurves?: SavedCurve[]
+  curveSets?: CurveSetDefinition[]
   theme?: import('./tokens').Theme
   createdAt: number
   updatedAt: number
@@ -59,6 +102,9 @@ export interface Palette {
   lightHueShift?: number                        // additional degrees at the light end
   darkHueShift?: number                         // additional degrees at the dark end
   lightnessDistribution?: 'linear' | 'perceptual'  // only used when preset === 'manual'
+  curveBindings?: Partial<Record<CurveType, string>>
+  curveCorrections?: Partial<Record<CurveType, CurveCorrectionModes>>
+  curveStrategies?: Partial<Record<CurveType, CurveConstraintStrategy>>
   activeMode: 'light' | 'dark'
   modes: {
     light: PaletteStep[]
@@ -73,6 +119,9 @@ export interface PaletteStep {
   hex: string
   isBase: boolean
   locked: boolean
+  /** Editable curve intent. This is never reconstructed from the rendered hex. */
+  curveValues: CurveValues
+  /** Gamut-mapped color result. */
   oklch: { l: number; c: number; h: number }
   contrast: {
     onLight: number

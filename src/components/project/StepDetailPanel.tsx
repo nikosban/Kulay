@@ -1,16 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ReactNode } from 'react'
 import { toast } from 'sonner'
-import { IconChevronDown, IconPencil, IconTrash, IconX, IconLock, IconLockOpen } from '@tabler/icons-react'
+import { IconChevronDown, IconChevronRight, IconPencil, IconTrash, IconLock, IconLockOpen } from '@tabler/icons-react'
 import type { Palette, PaletteStep, PalettePreset } from '../../types/project'
 import { DEFAULT_LIGHTNESS_RANGE, DEFAULT_PRESET, PALETTE_PRESETS, getActiveSteps } from '../../types/project'
 import { useProjectStore } from '../../store/useProjectStore'
 import { contrastRatio, wcagLabel, relativeLuminance } from '../../lib/wcag'
 import { parseColorInput } from '../../lib/colorInput'
+import { parseCurveInputValue } from '../../lib/curveChart'
 
 interface Props {
   palette: Palette
   step: PaletteStep
   onClose: () => void
+  curveTools?: ReactNode
 }
 
 function hexToHsl(hex: string): [number, number, number] {
@@ -173,7 +175,8 @@ function EditableMultiValueRow({
               }}
               onChange={(e) => setEditValue(e.target.value)}
               onBlur={() => {
-                if (editingIdx === idx) onCommit(buildColor(idx, editValue, rawValues))
+                const parsed = parseCurveInputValue(editValue)
+                if (editingIdx === idx && parsed !== null) onCommit(buildColor(idx, String(parsed), rawValues))
                 setEditingIdx(null)
               }}
               onKeyDown={(e) => {
@@ -193,7 +196,7 @@ function EditableMultiValueRow({
 }
 
 
-export function StepDetailPanel({ palette, step, onClose }: Props) {
+export function StepDetailPanel({ palette, step, onClose, curveTools }: Props) {
   const updateStepHex = useProjectStore((s) => s.updateStepHex)
   const lockStep = useProjectStore((s) => s.lockStep)
   const unlockStep = useProjectStore((s) => s.unlockStep)
@@ -334,13 +337,15 @@ export function StepDetailPanel({ palette, step, onClose }: Props) {
         )}
         <button
           onClick={onClose}
-          title="Close"
-          aria-label="Close"
+          title="Collapse inspector"
+          aria-label="Collapse inspector"
           className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors flex-shrink-0"
         >
-          <IconX size={14} stroke={1.75} />
+          <IconChevronRight size={14} stroke={1.75} />
         </button>
       </div>
+
+      {curveTools}
 
       {/* ── Preset ── */}
       <div className="order-2 flex flex-col gap-2.5 p-3 border-b border-bd-base dark:border-bd-base-dark">

@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect, Fragment } from "react";
-import { IconLayoutGrid, IconTable, IconLock, IconPlus } from "@tabler/icons-react";
+import { useRef, useState, useEffect } from "react";
+import { IconChevronLeft, IconChevronRight, IconLayoutGrid, IconTable } from "@tabler/icons-react";
 import { useProjectStore } from "../../store/useProjectStore";
 import { getActiveSteps } from "../../types/project";
 import type { Palette, LabelScale } from "../../types/project";
@@ -12,9 +12,14 @@ import { StepDetailPanel } from "./StepDetailPanel";
 import { ExportModal } from "./ExportModal";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { ProjectSidebar } from "./ProjectSidebar";
-import { TokensView } from "../tokens/TokensView";
+import { CurveEditor } from "./CurveEditor";
+import { IsolatedCurveEditor } from "./IsolatedCurveEditor";
+import { CurveDetailPanel } from "./CurveDetailPanel";
+import { TokenComponentsInspector, TokensView } from "../tokens/TokensView";
+import type { ComponentType } from "../tokens/ComponentDetail";
 import { relativeLuminance } from "../../lib/wcag";
 import { sanitizeHex } from "../../lib/hexInput";
+import { realizeCurvePreview } from "../../lib/savedCurves";
 import { toast } from "sonner";
 
 const MIN_STEPS = 2;
@@ -188,6 +193,7 @@ export function ProjectScreen() {
   const closeProject = useProjectStore((s) => s.closeProject);
   const saveNow = useProjectStore((s) => s.saveNow);
   const palettes = useProjectStore((s) => s.activeProject?.palettes ?? []);
+  const savedCurves = useProjectStore((s) => s.activeProject?.savedCurves ?? []);
   const stepCount = useProjectStore((s) => s.activeProject?.stepCount ?? 10);
   const backgrounds = useProjectStore((s) => s.activeProject?.backgrounds);
   const updateBackgrounds = useProjectStore((s) => s.updateBackgrounds);
@@ -196,29 +202,59 @@ export function ProjectScreen() {
   const labelScale = useProjectStore((s) => s.activeProject?.labelScale ?? DEFAULT_LABEL_SCALE);
   const setLabelScale = useProjectStore((s) => s.setLabelScale);
   const insertStep = useProjectStore((s) => s.insertStep);
+  const updateCurveStep = useProjectStore((s) => s.updateCurveStep);
+  const updateCurveStrategy = useProjectStore((s) => s.updateCurveStrategy);
+  const updateSavedCurvePoint = useProjectStore((s) => s.updateSavedCurvePoint);
+  const updateSavedCurveStrategy = useProjectStore((s) => s.updateSavedCurveStrategy);
+  const previewSavedCurvePoint = useProjectStore((s) => s.previewSavedCurvePoint);
+  const detachSavedCurve = useProjectStore((s) => s.detachSavedCurve);
+  const curvePreview = useProjectStore((s) => s.curvePreview);
+  const curvePreviewKind = useProjectStore((s) => s.curvePreviewKind);
+  const curveHistoryPast = useProjectStore((s) => s.curveHistoryPast);
+  const curveHistoryFuture = useProjectStore((s) => s.curveHistoryFuture);
+  const previewCurveShapePreset = useProjectStore((s) => s.previewCurveShapePreset);
+  const commitCurvePreview = useProjectStore((s) => s.commitCurvePreview);
+  const cancelCurvePreview = useProjectStore((s) => s.cancelCurvePreview);
+  const undoCurveEdit = useProjectStore((s) => s.undoCurveEdit);
+  const redoCurveEdit = useProjectStore((s) => s.redoCurveEdit);
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [activeTab, setActiveTab] = useState<'colors' | 'tokens'>('colors');
   const [tableCollapsed, setTableCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [openPanelKey, setOpenPanelKey] = useState<{ paletteId: string; stepLabel: number } | null>(null);
   const [selectedPaletteId, setSelectedPaletteId] = useState<string | null>(null);
+  const [selectedCurveId, setSelectedCurveId] = useState<string | null>(null);
+  const [selectedCurvePointId, setSelectedCurvePointId] = useState<string | null>(null);
+  const [selectedTokenComponent, setSelectedTokenComponent] = useState<ComponentType | null>(null);
 
   const paletteRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const stepDivRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const [focusedStepLabel, setFocusedStepLabel] = useState<number | null>(null);
 
   function handleOpenStep(paletteId: string, stepLabel: number | null) {
     setOpenPanelKey(stepLabel === null ? null : { paletteId, stepLabel });
+    if (stepLabel !== null) setInspectorCollapsed(false);
   }
 
   function handleSelectPalette(id: string | null) {
+    cancelCurvePreview();
+    setSelectedCurveId(null);
+    setSelectedCurvePointId(null);
     setSelectedPaletteId(id);
     setOpenPanelKey(null);
     if (id) {
       const el = paletteRefs.current.get(id);
       el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
+  }
+
+  function handleSelectCurve(id: string) {
+    cancelCurvePreview();
+    setActiveTab('colors');
+    setSelectedCurveId(id);
+    setSelectedCurvePointId(null);
+    setOpenPanelKey(null);
+    setInspectorCollapsed(false);
   }
 
   function handleSelectAndOpenStep(paletteId: string, stepLabel: number) {
@@ -240,6 +276,19 @@ export function ProjectScreen() {
 
   const selectedPalette = selectedPaletteId
     ? (palettes.find((p) => p.id === selectedPaletteId) ?? null)
+    : null;
+  const selectedCurve = selectedCurveId
+    ? (savedCurves.find((curve) => curve.id === selectedCurveId) ?? null)
+    : null;
+  const linkedReferencePalette = selectedCurve
+    ? (selectedPalette?.curveBindings?.[selectedCurve.type] === selectedCurve.id
+        ? selectedPalette
+        : palettes.find((palette) => palette.curveBindings?.[selectedCurve.type] === selectedCurve.id) ?? null)
+    : null;
+  const referencePalette = linkedReferencePalette ?? selectedPalette ?? palettes[0] ?? null;
+  const displayedCurve = selectedCurve && curvePreview?.id === selectedCurve.id ? curvePreview : selectedCurve;
+  const displayedCurvePreview = displayedCurve && referencePalette && backgrounds
+    ? realizeCurvePreview(referencePalette, displayedCurve, backgrounds)
     : null;
 
   const openPalette = openPanelKey
@@ -267,6 +316,19 @@ export function ProjectScreen() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [palettes.length]);
 
+  useEffect(() => {
+    function onCurveHistoryKeyDown(event: KeyboardEvent) {
+      if (!selectedCurveId || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'z') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, [contenteditable="true"]')) return;
+      event.preventDefault();
+      if (event.shiftKey) redoCurveEdit();
+      else undoCurveEdit();
+    }
+    document.addEventListener('keydown', onCurveHistoryKeyDown);
+    return () => document.removeEventListener('keydown', onCurveHistoryKeyDown);
+  }, [redoCurveEdit, selectedCurveId, undoCurveEdit]);
+
   function handleBack() {
     if (isDirty) setShowLeaveModal(true);
     else closeProject();
@@ -279,9 +341,11 @@ export function ProjectScreen() {
       <ProjectSidebar
         onBack={handleBack}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => { cancelCurvePreview(); setActiveTab(tab); }}
         selectedPaletteId={selectedPaletteId}
         onSelectPalette={(id) => { setActiveTab('colors'); handleSelectPalette(id); }}
+        selectedCurveId={selectedCurveId}
+        onSelectCurve={handleSelectCurve}
       />
 
       {/* ── Main area ── */}
@@ -289,119 +353,28 @@ export function ProjectScreen() {
 
         {/* Content */}
         <div className="flex flex-1 overflow-hidden">
-          {activeTab === 'tokens' && <TokensView />}
+          {activeTab === 'tokens' && <TokensView selected={selectedTokenComponent} />}
 
           {/* ── Colors tab content ── */}
-          {activeTab === 'colors' && selectedPalette ? (() => {
-            const steps = getActiveSteps(selectedPalette);
-            const atMaxSteps = steps.length >= MAX_STEPS;
-            return (
-              <div className="flex flex-row flex-1 overflow-hidden">
-
-                {/* Left edge insert */}
-                {!atMaxSteps && (
-                  <div className="w-1 flex-shrink-0 relative group/ins">
-                    <button
-                      aria-label="Insert step before first"
-                      onClick={() => handleInsertStep(selectedPalette.id, null, steps[0]!.label)}
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
-                    >
-                      <IconPlus size={10} />
-                    </button>
-                  </div>
-                )}
-
-                {steps.map((step, idx) => {
-                  const lum = relativeLuminance(step.hex);
-                  const textColor = lum > 0.18 ? "#111111" : "#ffffff";
-                  const isOpen = openPanelKey?.paletteId === selectedPalette.id && openPanelKey.stepLabel === step.label;
-                  const isFocused = focusedStepLabel === step.label;
-                  return (
-                    <Fragment key={step.label}>
-                      <div
-                        ref={(el) => { if (el) stepDivRefs.current.set(step.label, el); else stepDivRefs.current.delete(step.label); }}
-                        tabIndex={0}
-                        role="button"
-                        aria-label={`Step ${step.label}`}
-                        aria-pressed={isOpen}
-                        className="flex-1 flex flex-col items-center justify-start pt-3 cursor-pointer relative focus:outline-none"
-                        style={{ backgroundColor: step.hex }}
-                        onClick={() => handleOpenStep(selectedPalette.id, isOpen ? null : step.label)}
-                        onFocus={() => setFocusedStepLabel(step.label)}
-                        onBlur={() => setFocusedStepLabel(null)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'ArrowRight') {
-                            e.preventDefault();
-                            const nextLabel = steps[(idx + 1) % steps.length]!.label;
-                            stepDivRefs.current.get(nextLabel)?.focus();
-                            handleOpenStep(selectedPalette.id, nextLabel);
-                          } else if (e.key === 'ArrowLeft') {
-                            e.preventDefault();
-                            const prevLabel = steps[(idx - 1 + steps.length) % steps.length]!.label;
-                            stepDivRefs.current.get(prevLabel)?.focus();
-                            handleOpenStep(selectedPalette.id, prevLabel);
-                          } else if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleOpenStep(selectedPalette.id, isOpen ? null : step.label);
-                          }
-                        }}
-                      >
-                        {isFocused && (
-                          <div
-                            className="absolute inset-0 pointer-events-none"
-                            style={{ outline: `2px solid ${textColor}`, outlineOffset: '-2px', opacity: 0.6 }}
-                          />
-                        )}
-                        {isOpen && (
-                          <div
-                            className="absolute inset-x-0 top-0 h-[3px]"
-                            style={{ backgroundColor: textColor, opacity: 0.5 }}
-                          />
-                        )}
-                        <span
-                          className="text-[10px] font-mono select-none"
-                          style={{ color: textColor, opacity: isOpen ? 1 : 0.5 }}
-                        >
-                          {step.label}
-                        </span>
-                        {step.locked && (
-                          <div className="mt-1">
-                            <IconLock size={10} style={{ color: textColor, opacity: 0.7 }} />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Between-column insert */}
-                      {!atMaxSteps && idx < steps.length - 1 && (
-                        <div className="w-1 flex-shrink-0 relative group/ins">
-                          <button
-                            aria-label={`Insert step between ${step.label} and ${steps[idx + 1]!.label}`}
-                            onClick={() => handleInsertStep(selectedPalette.id, step.label, steps[idx + 1]!.label)}
-                            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
-                          >
-                            <IconPlus size={10} />
-                          </button>
-                        </div>
-                      )}
-                    </Fragment>
-                  );
-                })}
-
-                {/* Right edge insert */}
-                {!atMaxSteps && (
-                  <div className="w-1 flex-shrink-0 relative group/ins">
-                    <button
-                      aria-label="Insert step after last"
-                      onClick={() => handleInsertStep(selectedPalette.id, steps[steps.length - 1]!.label, null)}
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-surface-base dark:bg-surface-base-dark border border-bd-base dark:border-bd-base-dark flex items-center justify-center text-fg-muted dark:text-fg-muted-dark opacity-0 group-hover/ins:opacity-100 transition-opacity z-10"
-                    >
-                      <IconPlus size={10} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })() : activeTab === 'colors' ? (
+          {activeTab === 'colors' && displayedCurve ? (
+            <IsolatedCurveEditor
+              curve={displayedCurve}
+              preview={displayedCurvePreview}
+              selectedPointId={selectedCurvePointId}
+              onSelectPoint={(pointId) => { setSelectedCurvePointId(pointId); setInspectorCollapsed(false); }}
+              onPreviewPoint={(pointId, value) => previewSavedCurvePoint(displayedCurve.id, pointId, value)}
+              onCommitPreview={commitCurvePreview}
+              onCancelPreview={cancelCurvePreview}
+            />
+          ) : activeTab === 'colors' && selectedPalette ? (
+            <CurveEditor
+              palette={selectedPalette}
+              onUpdateCurveStep={updateCurveStep}
+              onUpdateCurveStrategy={updateCurveStrategy}
+              onSelectStep={(stepLabel) => handleOpenStep(selectedPalette.id, stepLabel)}
+              onInsertStep={(leftLabel, rightLabel) => handleInsertStep(selectedPalette.id, leftLabel, rightLabel)}
+            />
+          ) : activeTab === 'colors' ? (
             /* ── All colors view ── */
             <main className="flex-1 overflow-hidden flex flex-col">
 
@@ -475,13 +448,85 @@ export function ProjectScreen() {
         </div>
       </div>
 
-      {/* ── Right panel (step detail) — sibling column, same level as left sidebar ── */}
-      {openStep && openPalette && (
+      {/* ── Persistent right inspector ── */}
+      {inspectorCollapsed ? (
+        <aside className="w-9 flex-shrink-0 border-l border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark flex flex-col items-center">
+          <button
+            type="button"
+            onClick={() => setInspectorCollapsed(false)}
+            title="Expand inspector"
+            aria-label="Expand inspector"
+            className="mt-2 w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors"
+          >
+            <IconChevronLeft size={14} stroke={1.75} />
+          </button>
+        </aside>
+      ) : activeTab === 'tokens' ? (
+        <aside className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-bd-base bg-surface-sunken dark:border-bd-base-dark dark:bg-surface-sunken-dark">
+          <div className="flex items-center gap-2 border-b border-bd-base px-3 py-2.5 dark:border-bd-base-dark">
+            <span className="flex-1 text-[13px] font-semibold text-fg-base dark:text-fg-base-dark">Components</span>
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed(true)}
+              title="Collapse inspector"
+              aria-label="Collapse inspector"
+              className="flex h-7 w-7 items-center justify-center rounded text-fg-placeholder transition-colors hover:bg-surface-neutral-subtle-active hover:text-fg-subtle dark:text-fg-placeholder-dark dark:hover:bg-surface-neutral-subtle-active-dark dark:hover:text-fg-subtle-dark"
+            >
+              <IconChevronRight size={14} stroke={1.75} />
+            </button>
+          </div>
+          <TokenComponentsInspector selected={selectedTokenComponent} onSelect={setSelectedTokenComponent} />
+        </aside>
+      ) : activeTab === 'colors' && displayedCurve && selectedCurve ? (
+        <CurveDetailPanel
+          curve={displayedCurve}
+          samples={displayedCurvePreview?.samples ?? []}
+          palettes={palettes}
+          selectedPointId={selectedCurvePointId}
+          onSelectPoint={setSelectedCurvePointId}
+          onUpdatePoint={(pointId, value) => updateSavedCurvePoint(selectedCurve.id, pointId, value)}
+          onUpdateStrategy={(strategy) => updateSavedCurveStrategy(selectedCurve.id, strategy)}
+          onPreviewPreset={(preset) => previewCurveShapePreset(selectedCurve.id, preset)}
+          previewing={curvePreviewKind === 'preset' && curvePreview?.id === selectedCurve.id}
+          onCommitPreview={commitCurvePreview}
+          onCancelPreview={cancelCurvePreview}
+          canUndo={curveHistoryPast.length > 0}
+          canRedo={curveHistoryFuture.length > 0}
+          onUndo={undoCurveEdit}
+          onRedo={redoCurveEdit}
+          onDetach={(paletteId) => detachSavedCurve(paletteId, selectedCurve.type)}
+          onClose={() => setInspectorCollapsed(true)}
+        />
+      ) : activeTab === 'colors' && openStep && openPalette ? (
         <StepDetailPanel
           palette={openPalette}
           step={openStep}
-          onClose={() => setOpenPanelKey(null)}
+          onClose={() => setInspectorCollapsed(true)}
         />
+      ) : (
+        <aside className="w-[300px] flex-shrink-0 border-l border-bd-base dark:border-bd-base-dark bg-surface-sunken dark:bg-surface-sunken-dark flex flex-col overflow-y-auto">
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-bd-base dark:border-bd-base-dark">
+            <span className="flex-1 text-[13px] font-semibold text-fg-base dark:text-fg-base-dark">
+              Inspector
+            </span>
+            <button
+              type="button"
+              onClick={() => setInspectorCollapsed(true)}
+              title="Collapse inspector"
+              aria-label="Collapse inspector"
+              className="w-7 h-7 flex items-center justify-center rounded text-fg-placeholder dark:text-fg-placeholder-dark hover:text-fg-subtle dark:hover:text-fg-subtle-dark hover:bg-surface-neutral-subtle-active dark:hover:bg-surface-neutral-subtle-active-dark transition-colors"
+            >
+              <IconChevronRight size={14} stroke={1.75} />
+            </button>
+          </div>
+          <div className="flex-1 flex items-center justify-center px-6 text-center">
+            <p className="text-[11px] leading-relaxed text-fg-placeholder dark:text-fg-placeholder-dark">
+              {selectedPalette
+                  ? 'Select a curve point or color step to inspect and edit it.'
+                  : 'Select a color or saved curve to begin editing.'}
+            </p>
+          </div>
+        </aside>
       )}
 
       {/* ── Floating toolbar ── */}
